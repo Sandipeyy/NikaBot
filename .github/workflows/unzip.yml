@@ -1,0 +1,59 @@
+name: Unzip uploaded archive
+
+on:
+  push:
+    paths:
+      - "*.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip into repo root
+        run: |
+          shopt -s nullglob
+          zips=(*.zip)
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "No zip found, nothing to do."
+            exit 0
+          fi
+          for z in "${zips[@]}"; do
+            rm -rf /tmp/unzipped && mkdir /tmp/unzipped
+            unzip -q "$z" -d /tmp/unzipped
+
+            # If the zip holds a single top-level folder (Nika-Bot-main/), use its contents
+            src=/tmp/unzipped
+            if [ "$(ls -A /tmp/unzipped | wc -l)" -eq 1 ] && [ -d "/tmp/unzipped/$(ls -A /tmp/unzipped)" ]; then
+              src="/tmp/unzipped/$(ls -A /tmp/unzipped)"
+            fi
+
+            # Skip secrets and workflow files (GITHUB_TOKEN can't push workflow changes)
+            rsync -a \
+              --exclude 'config.json' \
+              --exclude '.env' \
+              --exclude '.git/' \
+              --exclude '.github/' \
+              --exclude '*.zip' \
+              "$src"/ ./
+
+            git rm -q --cached "$z" 2>/dev/null || true
+            rm -f "$z"
+          done
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Unzip uploaded archive"
+            git push
+          fi
