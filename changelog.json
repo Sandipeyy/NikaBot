@@ -1,0 +1,24 @@
+[
+  {
+    "kind": "website",
+    "title": "New look and status tools",
+    "date": "2026-11-10",
+    "items": [
+      "Redesigned every page for phones, tablets and desktops",
+      "Light and dark themes",
+      "Live status with 30-day uptime bars and an incident history",
+      "Planned maintenance notices",
+      "Command analytics with daily usage trends"
+    ]
+  },
+  {
+    "kind": "bot",
+    "title": "Cleaner code, configurable AI chat",
+    "date": "2026-11-10",
+    "items": [
+      "Command files reorganised and reformatted",
+      "/chat now works with any OpenAI-compatible provider (AI_API_KEY, AI_API_URL, AI_MODEL)",
+      "Command usage is recorded per day for the analytics page"
+    ]
+  }
+]
