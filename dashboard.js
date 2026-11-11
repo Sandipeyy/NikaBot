@@ -12,6 +12,11 @@ const { shell } = require('./layout');
 const monitor = require('./monitor');
 const usage = require('./usage');
 const changelog = require('./changelog');
+const adminpages = require('./adminpages');
+const adminlog = require('./adminlog');
+const honeypot = require('./honeypot');
+const verify = require('./verify');
+const confession = require('./confession');
 
 // Dashboard modules: [key, type, label, hint]
 const MODULES = {
@@ -72,6 +77,97 @@ const MODULES = {
       ['modlog_channel', 'channel', 'Mod-log channel', 'Where removed messages are logged'],
     ],
   },
+  logs: {
+    icon: '📜',
+    title: 'Logs',
+    desc:
+      'Record what happens in your server. Moderation actions go to the mod-log, everything else to the log channel.',
+    fields: [
+      [
+        'modlog_channel',
+        'channel',
+        'Mod-log channel',
+        'Bans, kicks, warns, timeouts, removed messages and honeypot catches',
+      ],
+      [
+        'logs_channel',
+        'channel',
+        'Server log channel',
+        'Messages, members, roles, channels, voice and bans',
+      ],
+      ['log_messages', 'toggle', 'Message edits and deletes'],
+      ['log_members', 'toggle', 'Joins, leaves, nicknames, roles and timeouts'],
+      ['log_roles', 'toggle', 'Role changes'],
+      ['log_channels', 'toggle', 'Channel changes'],
+      ['log_voice', 'toggle', 'Voice joins, leaves and moves', 'Can be noisy in busy servers'],
+      ['log_bans', 'toggle', 'Bans and unbans'],
+    ],
+  },
+  honeypot: {
+    icon: '🍯',
+    title: 'Honeypot',
+    desc:
+      'A trap channel. Anyone without moderator permissions who posts in it is removed automatically, which stops spam bots and hacked accounts.',
+    fields: [
+      [
+        'honeypot_channel',
+        'channel',
+        'Honeypot channel',
+        'Leave empty to turn it off. Run /honeypot setup to create one.',
+      ],
+      [
+        'honeypot_action',
+        'select',
+        'What happens to them',
+        'Members with Manage Messages, Kick or Ban permissions are never touched.',
+        [
+          ['ban', 'Ban'],
+          ['softban', 'Softban (wipes their messages)'],
+          ['kick', 'Kick'],
+          ['timeout', 'Timeout for 7 days'],
+        ],
+      ],
+    ],
+    post: ['Post the warning notice in the channel', 'honeypot_channel'],
+    extra: 'honeypot',
+  },
+  verify: {
+    icon: '✅',
+    title: 'Verification',
+    desc:
+      'New members press a button (or answer a small question) to get a role. Hide your other channels from @everyone and show them to that role.',
+    fields: [
+      ['verify_channel', 'channel', 'Verification channel', 'Where the button is posted'],
+      ['verify_role', 'role', 'Verified role', 'Given after verifying. My role must be above it.'],
+      ['verify_remove_role', 'role', 'Role to remove', 'Optional, e.g. an Unverified role'],
+      [
+        'verify_mode',
+        'select',
+        'How members verify',
+        '',
+        [['button', 'Button (one click)'], ['question', 'Question (small maths question)']],
+      ],
+    ],
+    post: ['Post the verification button', 'verify_channel'],
+    extra: 'verify',
+  },
+  confession: {
+    icon: '🤫',
+    title: 'Confessions',
+    desc:
+      'Members post anonymously with /confess. Moderators can see the sender if a post breaks the rules.',
+    fields: [
+      ['confession_channel', 'channel', 'Confession channel', 'Where confessions are posted'],
+      [
+        'confession_review',
+        'channel',
+        'Review channel',
+        'Optional. Moderators approve each confession here before it is posted.',
+      ],
+    ],
+    post: ['Post a button members can press to confess', 'confession_channel'],
+    extra: 'confession',
+  },
   economy: {
     icon: '💰',
     title: 'Economy',
@@ -108,6 +204,7 @@ const MODULES = {
     ],
   },
 };
+
 module.exports = client => {
   const app = express();
   const name = () => client.user?.username || process.env.BOT_NAME || 'NikaBot';
@@ -116,13 +213,17 @@ module.exports = client => {
 
   const hidden = /^\/(guild|servers|leaderboard|login|logout|callback|preview|admin)/;
   const L = (req, title, body, extra = '') =>
-    shell(req, name(), {
-      title,
-      body: site.h1(body),
-      extra,
-      noindex: hidden.test(req.path),
-      session: req.session.user,
-    });
+    shell(
+      req,
+      name(),
+      {
+        title,
+        body: site.h1(body),
+        extra,
+        noindex: hidden.test(req.path),
+        session: req.session.user,
+      },
+    );
 
   app.set('trust proxy', process.env.TRUST_PROXY ? 1 : false);
   app.disable('x-powered-by');
@@ -313,20 +414,31 @@ module.exports = client => {
   });
 
   app.get('/status', (req, res) => {
-    res.send(L(req, 'Status', pages.statusPage(monitor.snapshot(client), name()), pages.STATUS_SCRIPT));
+    res.send(
+      L(req, 'Status', pages.statusPage(monitor.snapshot(client), name()), pages.STATUS_SCRIPT),
+    );
   });
 
   app.get('/analytics', (req, res) => {
     const report = usage.report(parseInt(req.query.days, 10) || 30);
-    res.send(L(req, 'Analytics', pages.analyticsPage(report), pages.analyticsScript(report.series)));
+    res.send(
+      L(req, 'Analytics', pages.analyticsPage(report), pages.analyticsScript(report.series)),
+    );
   });
 
   app.get('/changelog', (req, res) => {
     res.send(L(req, 'Changelog', pages.changelogPage(changelog.list(), req.query.show)));
   });
 
-  app.get('/api/status', (req, res) => res.set('Cache-Control', 'no-store').json(monitor.snapshot(client)));
-  app.get('/api/analytics', (req, res) => res.set('Cache-Control', 'no-store').json(usage.report(parseInt(req.query.days, 10) || 30)));
+  app.get(
+    '/api/status',
+    (req, res) => res.set('Cache-Control', 'no-store').json(monitor.snapshot(client)),
+  );
+  app.get(
+    '/api/analytics',
+    (req, res) =>
+      res.set('Cache-Control', 'no-store').json(usage.report(parseInt(req.query.days, 10) || 30)),
+  );
   app.get('/api/changelog', (req, res) => res.json(changelog.list()));
 
   // ---------- Public leaderboard
@@ -423,7 +535,10 @@ module.exports = client => {
   app.get('/apple-touch-icon.png', asset('180', () => card.renderIcon(180)));
   app.get('/icon-192.png', asset('192', () => card.renderIcon(192)));
   app.get('/icon-512.png', asset('512', () => card.renderIcon(512)));
-  app.get('/og.png', asset('og', () => card.renderOg(name(), 'Leveling, moderation, music and games')));
+  app.get(
+    '/og.png',
+    asset('og', () => card.renderOg(name(), 'Leveling, moderation, music and games')),
+  );
   app.get(
     '/site.webmanifest',
     (req, res) =>
@@ -434,8 +549,8 @@ module.exports = client => {
           description: 'Discord bot for leveling, moderation, music and games',
           start_url: '/',
           display: 'standalone',
-          background_color: '#14112b',
-          theme_color: '#14112b',
+          background_color: '#1e1f22',
+          theme_color: '#1e1f22',
           icons: [
             { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
@@ -563,28 +678,148 @@ module.exports = client => {
 
     return client.guilds.cache.get(req.params.id);
   };
-  const side = (
-    g,
-    cur,
-  ) => `<aside class=side><a class="${cur === 'overview' ? 'on' : ''}" href=/guild/${g.id}>🏠 Overview</a>${Object.entries(MODULES).map(([k, m]) => `<a class="${cur === k ? 'on' : ''}" href=/guild/${g.id}/${k}>${m.icon} ${m.title}</a>`).join('')}<a href=/leaderboard/${g.id}>🏆 Leaderboard ↗</a><a href=/servers>↩ Servers</a></aside>`;
+  const side = (g, cur) => {
+    const link = (
+      key,
+      href,
+      label,
+    ) => `<a class="${cur === key ? 'on' : ''}" href="${href}">${label}</a>`;
+    const mods = Object
+      .entries(MODULES)
+      .map(([k, m]) => link(k, `/guild/${g.id}/${k}`, `${m.icon} ${m.title}`))
+      .join('');
+    return `<aside class=side>${link('overview', `/guild/${g.id}`, '🏠 Overview')}${mods}<b class=sidehead>Admin tools</b>${link('cases', `/guild/${g.id}/cases`, '🔨 Mod cases')}${link('confessions', `/guild/${g.id}/confessions`, '🤫 Confession review')}${link('activity', `/guild/${g.id}/activity`, '🕘 Dashboard activity')}<a href=/leaderboard/${g.id}>🏆 Leaderboard ↗</a><a href=/servers>↩ Servers</a></aside>`;
+  };
 
   app.get('/guild/:id', auth, (req, res) => {
     const g = ctx(req, res);
     if (!g) return;
-    const n = (q, ...a) => db.prepare(q).get(...a).n;
-    const stat = (v, l) => `<div class=stat><b>${v.toLocaleString()}</b><small>${l}</small></div>`;
+    const s = store.settings(g.id);
+    const cards = Object
+      .entries(MODULES)
+      .map((
+        [k, m],
+      ) => `<a class=card href=/guild/${g.id}/${k}><div class=ico>${m.icon}</div><h3>${m.title}</h3><p>${m.desc}</p></a>`)
+      .join('');
 
     res.send(
       L(
         req,
         g.name,
-        `<div class="wrap dash">${side(g, 'overview')}<main><h2 style="margin:0 0 16px">${esc(g.name)}</h2>
-<div class=stats style="margin-top:0">${stat(g.memberCount, 'Members')}${stat(n('SELECT COUNT(*) n FROM levels WHERE guild=?', g.id), 'Ranked members')}${stat(n('SELECT COUNT(*) n FROM warns WHERE guild=?', g.id), 'Warnings')}</div>
-<div class=grid>${Object.entries(MODULES).map(([k, m]) => `<a class=card href=/guild/${g.id}/${k}><div class=ico>${m.icon}</div><h3>${m.title}</h3><p>${m.desc}</p></a>`).join('')}</div>
-<div class=card><h3>💡 Quick setup</h3><p>Run <code>/vc setup</code> for temporary voice channels, <code>/ticket</code> to post a ticket panel and <code>/giveaway</code> to start giveaways.</p></div></main></div>`,
+        `<div class="wrap dash">${side(g, 'overview')}<main>${adminpages.overview(g, s, invite())}<h3 style="margin:26px 0 10px">All settings</h3><div class=grid>${cards}</div></main></div>`,
       ),
     );
   });
+
+  // ---------- admin tools
+  const page = (req, g, key, html) =>
+    L(req, g.name, `<div class="wrap dash">${side(g, key)}<main>${html}</main></div>`);
+
+  app.get('/guild/:id/cases', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (g) res.send(page(req, g, 'cases', adminpages.casesPage(g, req.query)));
+  });
+
+  app.get('/guild/:id/cases.csv', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    adminlog.add(g.id, req.session.user, 'Cases', 'exported moderation cases as CSV');
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="cases-${g.id}.csv"`,
+    }).send(adminpages.casesCsv(g, req.query));
+  });
+
+  app.get('/guild/:id/activity', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (g) res.send(page(req, g, 'activity', adminpages.activityPage(g, req.query)));
+  });
+
+  const confessionFlash = {
+    deleted: '<div class=ok>Confession deleted.</div>',
+    blocked: '<div class=ok>That member can no longer send confessions.</div>',
+    unblocked: '<div class=ok>That member can send confessions again.</div>',
+    badid: '<div class=warn>Paste a valid user ID.</div>',
+  };
+
+  app.get('/guild/:id/confessions', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (g)
+      res.send(
+        page(req, g, 'confessions', adminpages.confessionsPage(g, confessionFlash[req.query.t])),
+      );
+  });
+
+  app.post('/guild/:id/confessions/block', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const id = String(req.body.user || '').replace(/\D/g, '');
+    if (id.length < 5) return res.redirect(`/guild/${g.id}/confessions?t=badid`);
+    const unblock = req.body.do === 'unblock';
+
+    if (unblock) confession.unblock(g.id, id);
+    else confession.block(g.id, id);
+
+    adminlog.add(
+      g.id,
+      req.session.user,
+      'Confessions',
+      `${unblock ? 'unblocked' : 'blocked'} member ${id}`,
+    );
+    res.redirect(`/guild/${g.id}/confessions?t=${unblock ? 'unblocked' : 'blocked'}`);
+  });
+
+  app.post('/guild/:id/confessions/:num/delete', auth, async (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const num = Number(req.params.num);
+    await confession.remove(g, num);
+    adminlog.add(g.id, req.session.user, 'Confessions', `deleted confession #${num}`);
+    res.redirect(`/guild/${g.id}/confessions?t=deleted`);
+  });
+
+  app.post('/guild/:id/confessions/:num/reveal', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const num = Number(req.params.num);
+    const row = db.prepare('SELECT author FROM confessions WHERE guild = ? AND num = ?').get(
+      g.id,
+      num,
+    );
+    if (!row) return res.sendStatus(404);
+
+    adminlog.add(
+      g.id,
+      req.session.user,
+      'Confessions',
+      `revealed the sender of confession #${num}`,
+    );
+    const log =
+      store.settings(g.id).modlog_channel
+        && g.channels.cache.get(store.settings(g.id).modlog_channel);
+    log?.send({
+      content: `🔎 ${esc(req.session.user.username)} revealed the sender of confession #${num} from the dashboard.`,
+      allowedMentions: { parse: [] },
+    }).catch(() => {});
+
+    const who = g.members.cache.get(row.author);
+    const note = `<div class=ok>Confession #${num} was sent by <b>${esc(who ? who.user.tag : 'a member who is not cached')}</b> <code>${esc(row.author)}</code>. This lookup was logged.</div>`;
+    res.send(page(req, g, 'confessions', adminpages.confessionsPage(g, note)));
+  });
+
+  const flashModule = t => ({
+    posted: '<div class=ok>Posted in your channel.</div>',
+    postfail:
+      "<div class=warn>I could not post there. Check that I can View Channel, Send Messages and Embed Links in that channel.</div>",
+    nochan: '<div class=warn>Choose a channel and save first.</div>',
+  }[t]
+    || '');
+
+  // button that posts the panel / notice for honeypot, verify and confession
+  const postBox = (g, key, mod, s) => {
+    if (!mod.post) return '';
+    return `<div class=card><h3>Post it</h3><form method=post action="/guild/${g.id}/${key}/post"><button class="btn g" ${s[mod.post[1]] ? '' : 'disabled'}>${mod.post[0]}</button>${s[mod.post[1]] ? '' : '<small style="display:block;color:var(--mut);margin-top:6px">Choose a channel and save first.</small>'}</form></div>`;
+  };
 
   app.get('/guild/:id/:mod', auth, (req, res) => {
     const g = ctx(req, res);
@@ -623,24 +858,26 @@ module.exports = client => {
         + items.map(i => `<option value=${i.id} ${i.id === sel ? 'selected' : ''}>${pre}${esc(i.name)}${pre === '#' && !i.permissionsFor?.(g.members.me)?.has(['ViewChannel', 'SendMessages']) ? ' (bot cannot post here)' : ''}</option>`).join(
           '',
         );
-    const field = ([k, t, label, hint]) => {
+    const field = ([k, t, label, hint, options]) => {
       const h = hint ? `<small>${esc(hint)}</small>` : '';
       if (t === 'toggle')
         return `<div class="fr tg"><div><b>${label}</b>${h}</div><label class=sw><input type=checkbox name=${k} value=1 ${s[k] ? 'checked' : ''}><span></span></label></div>`;
       const inp =
-        t === 'channel'
-          ? `<select name=${k}>${opt([...chans.values()], s[k], '#')}</select>`
-          : t === 'role'
-            ? `<select name=${k}>${opt([...roles.values()], s[k], '')}</select>`
-            : t === 'number'
-              ? `<input type=number step=0.1 name=${k} value="${esc(s[k])}">`
-              : t === 'cmdlist'
-                ? cmdList(k, s[k])
-                : t === 'text' || t === 'url'
-                  ? `<input name=${k} value="${esc(s[k])}" maxlength=300>`
-                  : t === 'color'
-                    ? `<input type=color name=${k} value="${esc(s[k] || (k.startsWith('goodbye') ? '#ed4245' : '#5865f2'))}" style="height:46px;padding:4px">`
-                    : `<textarea name=${k} rows=3>${esc(s[k])}</textarea>`;
+        t === 'select'
+          ? `<select name=${k}>${(options || []).map(([v, l]) => `<option value=${v} ${(s[k] || options[0][0]) === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`
+          : t === 'channel'
+            ? `<select name=${k}>${opt([...chans.values()], s[k], '#')}</select>`
+            : t === 'role'
+              ? `<select name=${k}>${opt([...roles.values()], s[k], '')}</select>`
+              : t === 'number'
+                ? `<input type=number step=0.1 name=${k} value="${esc(s[k])}">`
+                : t === 'cmdlist'
+                  ? cmdList(k, s[k])
+                  : t === 'text' || t === 'url'
+                    ? `<input name=${k} value="${esc(s[k])}" maxlength=300>`
+                    : t === 'color'
+                      ? `<input type=color name=${k} value="${esc(s[k] || (k.startsWith('goodbye') ? '#ed4245' : '#5865f2'))}" style="height:46px;padding:4px">`
+                      : `<textarea name=${k} rows=3>${esc(s[k])}</textarea>`;
       return `<div class=fr><b>${label}</b>${h}${inp}</div>`;
     };
 
@@ -649,9 +886,43 @@ module.exports = client => {
         req,
         mod.title,
         `<div class="wrap dash">${side(g, req.params.mod)}<main><h2 style="margin:0 0 6px">${mod.icon} ${mod.title}</h2><p style="color:var(--mut);margin-top:0">${mod.desc}</p>
-${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ? '<div class=ok>✅ Test message sent. Check your channel in Discord.</div>' : T === 'nochan' ? '<div class=warn>⚠️ Choose a channel and save first.</div>' : T === 'fail' ? '<div class=warn>⚠️ I could not send the test message. Check my permissions in that channel.</div>' : T === 'permok' ? '<div class=ok>✅ Permissions fixed. Send the test message again.</div>' : T === 'permfail' ? '<div class=warn>⚠️ Discord would not let me change that channel. Open Channel Settings → Permissions and allow my role to View Channel, Send Messages, Embed Links and Attach Files (or give my role Administrator).</div>' : ''}${warn ? `<div class=warn>⚠️ ${warn}${fix}</div>` : ''}${mod.preview ? `<div class=card><b>Preview</b>${!s[mod.preview + '_img'] ? '<small style="display:block;color:#f0b232;margin-bottom:4px">The image card is OFF, so only your text message is sent. Turn on “Send an image card” below and save.</small>' : ''}<small style="display:block;color:var(--mut)">Updates after you save. Uses your own avatar as a sample.</small><form method=post action="/guild/${g.id}/${req.params.mod}/test" style="margin-top:10px"><button class="btn g s">Send a test message to Discord</button></form><img src="/preview/${g.id}/${mod.preview}?t=${Date.now()}" alt="preview" style="width:100%;border-radius:12px;margin-top:10px"></div>` : ''}<form method=post class=card>${mod.fields.map(field).join('')}<br><button class=btn>Save changes</button></form></main></div>`,
+${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ? '<div class=ok>✅ Test message sent. Check your channel in Discord.</div>' : T === 'nochan' ? '<div class=warn>⚠️ Choose a channel and save first.</div>' : T === 'fail' ? '<div class=warn>⚠️ I could not send the test message. Check my permissions in that channel.</div>' : T === 'permok' ? '<div class=ok>✅ Permissions fixed. Send the test message again.</div>' : T === 'permfail' ? '<div class=warn>⚠️ Discord would not let me change that channel. Open Channel Settings → Permissions and allow my role to View Channel, Send Messages, Embed Links and Attach Files (or give my role Administrator).</div>' : ''}${flashModule(T)}${warn ? `<div class=warn>⚠️ ${warn}${fix}</div>` : ''}${mod.preview ? `<div class=card><b>Preview</b>${!s[mod.preview + '_img'] ? '<small style="display:block;color:#f0b232;margin-bottom:4px">The image card is OFF, so only your text message is sent. Turn on “Send an image card” below and save.</small>' : ''}<small style="display:block;color:var(--mut)">Updates after you save. Uses your own avatar as a sample.</small><form method=post action="/guild/${g.id}/${req.params.mod}/test" style="margin-top:10px"><button class="btn g s">Send a test message to Discord</button></form><img src="/preview/${g.id}/${mod.preview}?t=${Date.now()}" alt="preview" style="width:100%;border-radius:12px;margin-top:10px"></div>` : ''}<form method=post class=card>${mod.fields.map(field).join('')}<br><button class=btn>Save changes</button></form>${postBox(g, req.params.mod, mod, s)}${mod.extra ? adminpages.extra(mod.extra, g, s) : ''}</main></div>`,
       ),
     );
+  });
+
+  app.post('/guild/:id/:mod/post', auth, async (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const kind = req.params.mod;
+    const s = store.settings(g.id);
+    let t = 'postfail';
+
+    try {
+      if (kind === 'verify') {
+        const issue = verify.problem(g);
+        if (issue) throw new Error(issue);
+        await verify.postPanel(g);
+        t = 'posted';
+      } else if (kind === 'honeypot') {
+        const ch = g.channels.cache.get(s.honeypot_channel);
+
+        if (!ch) t = 'nochan';
+        else {
+          await honeypot.postNotice(ch, s.honeypot_action || 'ban');
+          t = 'posted';
+        }
+      } else if (kind === 'confession') {
+        await confession.postPanel(g);
+        t = 'posted';
+      } else return res.sendStatus(404);
+    } catch (e) {
+      console.error('[post]', e.message);
+    }
+
+    if (t === 'posted')
+      adminlog.add(g.id, req.session.user, MODULES[kind].title, 'posted the panel in Discord');
+    res.redirect(`/guild/${g.id}/${kind}?t=${t}`);
   });
 
   app.post('/guild/:id/:mod/fixperms', auth, async (req, res) => {
@@ -703,7 +974,11 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
     const mod = MODULES[req.params.mod];
     if (!mod) return res.sendStatus(404);
 
-    for (const [k, t] of mod.fields) {
+    const before = { ...store.settings(g.id) };
+    const changed = [];
+
+    for (const f of mod.fields) {
+      const [k, t] = f;
       let v = req.body[k];
 
       if (t === 'toggle') v = v ? 1 : 0;
@@ -716,7 +991,9 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
             : k === 'xp_rate'
               ? Math.min(5, Math.max(0.5, v))
               : Math.min(100000, Math.max(1, Math.round(v)));
-      } else if (t === 'channel') v = g.channels.cache.has(v) ? v : null;
+      } else if (t === 'select')
+        v = (f[4] || []).some(o => o[0] === v) ? v : f[4]?.[0]?.[0] ?? null;
+      else if (t === 'channel') v = g.channels.cache.has(v) ? v : null;
       else if (t === 'role') v = g.roles.cache.has(v) ? v : null;
       else if (t === 'cmdlist')
         v =
@@ -735,9 +1012,13 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
             || null;
       else v = String(v ?? '').slice(0, 1000) || null;
 
+      if ((before[k] ?? null) !== (v ?? null) && !(t === 'toggle' && !!before[k] === !!v))
+        changed.push(f[2]);
       store.setSetting(g.id, k, v);
     }
 
+    if (changed.length)
+      adminlog.add(g.id, req.session.user, mod.title, `changed ${changed.join(', ')}`);
     res.redirect(`/guild/${g.id}/${req.params.mod}?saved=1`);
   });
 
@@ -748,7 +1029,8 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
 
   const ownerOnly = (req, res, next) => {
     if (!req.session.user) return res.redirect('/login');
-    if (!owners().includes(req.session.user.id)) return res.status(403).send(L(req, 'Not allowed', pages.notFound()));
+    if (!owners().includes(req.session.user.id))
+      return res.status(403).send(L(req, 'Not allowed', pages.notFound()));
     next();
   };
 
@@ -761,11 +1043,13 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
 
   const act = fn => (req, res) => {
     let msg = 'Saved.';
+
     try {
       fn(req);
     } catch (e) {
       msg = e.message;
     }
+
     res.redirect('/admin?m=' + encodeURIComponent(msg.slice(0, 120)));
   };
 
@@ -775,13 +1059,34 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
     const body = pages.adminPage(snap, mine, req.query.m ? String(req.query.m).slice(0, 120) : '');
     res.send(L(req, 'Admin', body, pages.ADMIN_SCRIPT));
   });
+
   app.post('/admin/maintenance', ownerOnly, sameSite, act(req => monitor.addMaintenance(req.body)));
-  app.post('/admin/maintenance/:id/cancel', ownerOnly, sameSite, act(req => monitor.cancelMaintenance(Number(req.params.id))));
+  app.post(
+    '/admin/maintenance/:id/cancel',
+    ownerOnly,
+    sameSite,
+    act(req => monitor.cancelMaintenance(Number(req.params.id))),
+  );
   app.post('/admin/incidents', ownerOnly, sameSite, act(req => monitor.manualIncident(req.body)));
-  app.post('/admin/incidents/:id/update', ownerOnly, sameSite, act(req => monitor.postUpdate(Number(req.params.id), req.body.status, req.body.message)));
-  app.post('/admin/incidents/:id/delete', ownerOnly, sameSite, act(req => monitor.deleteIncident(Number(req.params.id))));
+  app.post(
+    '/admin/incidents/:id/update',
+    ownerOnly,
+    sameSite,
+    act(req => monitor.postUpdate(Number(req.params.id), req.body.status, req.body.message)),
+  );
+  app.post(
+    '/admin/incidents/:id/delete',
+    ownerOnly,
+    sameSite,
+    act(req => monitor.deleteIncident(Number(req.params.id))),
+  );
   app.post('/admin/changelog', ownerOnly, sameSite, act(req => changelog.add(req.body)));
-  app.post('/admin/changelog/:id/delete', ownerOnly, sameSite, act(req => changelog.remove(Number(req.params.id))));
+  app.post(
+    '/admin/changelog/:id/delete',
+    ownerOnly,
+    sameSite,
+    act(req => changelog.remove(Number(req.params.id))),
+  );
 
   app.use((req, res) => res.status(404).send(L(req, 'Page not found', pages.notFound())));
 
@@ -789,7 +1094,8 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
   app.use((err, req, res, next) => {
     console.error('[web]', err.message);
     if (res.headersSent) return;
-    if (req.path.startsWith('/api/')) return res.status(500).json({ error: 'Something went wrong' });
+    if (req.path.startsWith('/api/'))
+      return res.status(500).json({ error: 'Something went wrong' });
     res.status(500).send(L(req, 'Something went wrong', pages.serverError()));
   });
 

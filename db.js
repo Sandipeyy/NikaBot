@@ -76,6 +76,21 @@ for (const c of [
   'goodbye_sub TEXT',
   'goodbye_bg TEXT',
   'goodbye_color TEXT',
+  'logs_channel TEXT',
+  'log_messages INTEGER DEFAULT 1',
+  'log_members INTEGER DEFAULT 1',
+  'log_roles INTEGER DEFAULT 1',
+  'log_channels INTEGER DEFAULT 1',
+  'log_voice INTEGER DEFAULT 0',
+  'log_bans INTEGER DEFAULT 1',
+  'honeypot_channel TEXT',
+  'honeypot_action TEXT',
+  'verify_channel TEXT',
+  'verify_role TEXT',
+  'verify_remove_role TEXT',
+  'verify_mode TEXT',
+  'confession_channel TEXT',
+  'confession_review TEXT',
 ]) {
   try {
     db.exec(`ALTER TABLE settings ADD COLUMN ${c}`);

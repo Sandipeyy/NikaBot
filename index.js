@@ -29,6 +29,10 @@ const commands = [
   ...require('./welcome').commands,
   ...require('./games').commands,
   ...require('./upgrades').commands,
+  ...require('./logs').commands,
+  ...require('./honeypot').commands,
+  ...require('./verify').commands,
+  ...require('./confession').commands,
 ].slice(0, 100);
 const { tick, handleButton } = require('./commands3');
 const { helpEmbed } = require('./commands2');
@@ -43,7 +47,7 @@ const client = new Client({
   shards: 'auto', // automatic multi-shard connection once the bot is in 2,500+ servers
   makeCache: Options.cacheWithLimits({
     ...Options.DefaultMakeCacheSettings,
-    MessageManager: 0,
+    MessageManager: 50, // needed so deleted/edited messages can be shown in /logs
     PresenceManager: 0,
     ReactionManager: 0,
     ThreadManager: 0,
@@ -56,6 +60,7 @@ const client = new Client({
       interval: 1800,
       filter: () => m => !m.voice?.channelId && m.id !== m.client.user.id,
     },
+    messages: { interval: 600, lifetime: 1800 },
     users: { interval: 1800, filter: () => u => u.id !== u.client.user.id },
   },
   intents: [
@@ -64,6 +69,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildModeration,
   ],
 });
 client.commandList = commands;
@@ -152,6 +158,10 @@ const gate = uid => {
 const release = uid => busy.delete(uid);
 
 client.on('interactionCreate', async (i) => {
+  if (i.guildId && i.customId?.startsWith('ver:'))
+    return require('./verify').handleComponent(i).catch(console.error);
+  if (i.guildId && i.customId?.startsWith('conf:'))
+    return require('./confession').handleComponent(i).catch(console.error);
   if (i.guildId && i.customId?.startsWith('mu:'))
     return require('./music').handleButton(i).catch(console.error);
   if (i.isStringSelectMenu?.() && i.customId === 'help:menu')
@@ -271,6 +281,7 @@ function prefixCmd(m, pfx) {
 client.on('messageCreate', m => {
   if (m.author.bot || !m.guild) return;
   const S = store.settings(m.guild.id);
+  if (require('./honeypot').check(m, S)) return;
   const why = automod(m, S);
 
   if (why) {
@@ -326,6 +337,7 @@ client.on('voiceStateUpdate', (o, n) => {
 });
 
 require('./music').init(client);
+require('./logs').listen(client);
 process.on('unhandledRejection', e => console.error('[unhandledRejection]', e));
 process.on('uncaughtException', e => console.error('[uncaughtException]', e));
 client.on('error', e => console.error('[client]', e)).on(

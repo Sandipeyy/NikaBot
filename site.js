@@ -6,12 +6,12 @@ const esc = s =>
   ).replace(/\p{Extended_Pictographic}/gu, c => '&#' + c.codePointAt(0) + ';');
 const LAST = 'November 10, 2026';
 
-// logo: a small sun on a dark tile
-const sunPaths = `<circle cx="16" cy="16" r="5.2" fill="#ffc43d"/><g stroke="#ffc43d" stroke-width="2.2" stroke-linecap="round"><path d="M16 4.5v3M16 24.5v3M4.5 16h3M24.5 16h3M7.9 7.9l2.1 2.1M22 22l2.1 2.1M7.9 24.1L10 22M22 10l2.1-2.1"/></g>`;
-const logo = (size = 32) =>
-  `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#241d52"/>${sunPaths}</svg>`;
-const faviconSvg = () =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#241d52"/>${sunPaths}</svg>`;
+// logo: blurple arch with a smile, same drawing as the canvas version in card.js
+const arch = `<defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d78f2"/><stop offset="1" stop-color="#4752c4"/></linearGradient></defs><path d="M42 172V92a58 58 0 0 1 116 0v80" fill="none" stroke="url(#lg)" stroke-width="34" stroke-linecap="round"/><circle cx="80" cy="108" r="9" fill="#fff"/><circle cx="120" cy="108" r="9" fill="#fff"/><path d="M84 132Q100 144 116 132" fill="none" stroke="#f2f3f5" stroke-width="7" stroke-linecap="round"/>`;
+const logo = (
+  size = 32,
+) => `<svg width="${size}" height="${size}" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#2b2d31"/>${arch}</svg>`;
+const faviconSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="44" fill="#2b2d31"/>${arch}</svg>`;
 
 // ---------- Icons (inline SVG, replace every emoji on the website)
 const { P, EMOJI } = require('./icons');
@@ -33,12 +33,16 @@ const h1 = body =>
 
 // ---------- SEO
 const META = {
-  Home: 'NikaBot is a free Discord bot with leveling, moderation, music, economy, games, welcome cards, tickets and giveaways, plus a live status page and web dashboard.',
-  Features: 'Everything NikaBot can do: leveling, auto-moderation, music, economy, games, temporary voice channels, tickets, giveaways and welcome cards.',
+  Home:
+    'NikaBot is a free Discord bot with leveling, moderation, music, economy, games, welcome cards, tickets and giveaways, plus a live status page and web dashboard.',
+  Features:
+    'Everything NikaBot can do: leveling, auto-moderation, music, economy, games, temporary voice channels, tickets, giveaways and welcome cards.',
   Commands: 'Searchable list of every NikaBot command with descriptions, grouped by category.',
-  Docs: 'Setup guides for welcome cards, leveling, auto-moderation, temporary voice channels, music, tickets and giveaways.',
+  Docs:
+    'Setup guides for welcome cards, leveling, auto-moderation, temporary voice channels, music, tickets and giveaways.',
   Premium: 'Everything is free. See pricing and upcoming premium options.',
-  Status: 'Live status of NikaBot: Discord connection, API, database, latency, 30-day uptime, incidents and planned maintenance.',
+  Status:
+    'Live status of NikaBot: Discord connection, API, database, latency, 30-day uptime, incidents and planned maintenance.',
   Analytics: 'Which NikaBot commands are used the most and how usage is trending.',
   Changelog: 'Every update to the bot and the website, newest first.',
   'Privacy Policy': 'How the bot collects, uses and protects data, and your privacy rights.',
@@ -49,13 +53,15 @@ const META = {
 // everything that goes inside <head>
 function head({ title, path, name, base, noindex }) {
   const home = title === 'Home';
-  const full = home ? `${name}: free Discord bot for leveling, moderation and music` : `${title} · ${name}`;
+  const full =
+    home ? `${name}: free Discord bot for leveling, moderation and music` : `${title} · ${name}`;
   const desc = META[title] || META.Home;
   const url = base + (path || '/');
   const img = base + '/og.png';
 
-  const ld = home
-    ? `<script type="application/ld+json">${JSON.stringify({
+  const ld =
+    home
+      ? `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@graph': [
           { '@type': 'WebSite', name, url: base + '/' },
@@ -78,17 +84,18 @@ function head({ title, path, name, base, noindex }) {
           },
         ],
       }).replace(/</g, '\\u003c')}</script>`
-    : '';
+      : '';
 
   const robots = noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large';
+
   return `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(full)}</title>
 <meta name="description" content="${esc(desc)}">
 <meta name="robots" content="${robots}">
 <link rel="canonical" href="${esc(url)}">
-<meta name="theme-color" content="#14112b" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f6f4fd" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1e1f22" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f3f8" media="(prefers-color-scheme: light)">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(name)}">
 <meta property="og:title" content="${esc(full)}">
@@ -107,7 +114,7 @@ function head({ title, path, name, base, noindex }) {
 <link rel="manifest" href="/site.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500..800&family=Plus+Jakarta+Sans:wght@400..800&display=swap">
 <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 ${ld}`;
 }
@@ -181,6 +188,26 @@ const privacy = n =>
               'Moderation cases, warnings, temporary bans',
               'Server moderation history for administrators',
               'Until deleted by an administrator or on request',
+            ],
+            [
+              'Honeypot catches (user ID, name, action, the message sent in the trap channel) and dashboard activity (who changed which setting)',
+              'Let administrators review automatic actions and recent changes',
+              'Until the server removes the Bot or asks for deletion',
+            ],
+            [
+              'Anonymous confessions: the text and the sender ID, and a list of blocked senders',
+              'Posts show no name, but moderators can look up the sender if a confession breaks the rules',
+              'Until a moderator deletes it or on request',
+            ],
+            [
+              'Verification records (user ID and time) and temporary answers to verification questions',
+              'Show who verified; questions expire after 5 minutes',
+              'Records until deleted on request; questions are kept in memory only',
+            ],
+            [
+              'Server logs: edited and deleted messages, joins, leaves, role and channel changes, voice activity (only if an administrator turns them on)',
+              'Posted to a channel the administrator chose',
+              'Not stored by the Bot; the log channel is controlled by the server',
             ],
             [
               'Server settings: channels, messages, auto-mod words, image links, prefix, disabled commands',
@@ -391,12 +418,12 @@ const docsPage = (
   n,
   prefix,
 ) => `<div class="wrap legal docs" style="max-width:820px"><h2 class=t style="text-align:left;margin-bottom:4px">📚 Documentation</h2><p style="color:var(--mut)">Everything you need to set up ${esc(n)}. Use <code>${esc(prefix)}help</code> or <code>/help</code> in Discord anytime.</p>
-<div class=toc><b>Guides</b><a href="#start">Quick start</a><a href="#welcome">Welcome &amp; goodbye cards</a><a href="#levels">Leveling and rank cards</a><a href="#automod">Auto-moderation</a><a href="#voice">Temporary voice channels</a><a href="#music">Music</a><a href="#tickets">Tickets and giveaways</a><a href="#prefix">Prefix commands &amp; shortcuts</a></div>
+<div class=toc><b>Guides</b><a href="#start">Quick start</a><a href="#welcome">Welcome &amp; goodbye cards</a><a href="#levels">Leveling and rank cards</a><a href="#automod">Auto-moderation</a><a href="#safety">Logs, honeypot, verification &amp; confessions</a><a href="#voice">Temporary voice channels</a><a href="#music">Music</a><a href="#tickets">Tickets and giveaways</a><a href="#prefix">Prefix commands &amp; shortcuts</a></div>
 <h2 id=start>Quick start</h2><p>1) Add the bot with the “Add to Discord” button. 2) Open the <a href="/servers">dashboard</a> and pick your server. 3) Use <code>/help</code> to see all commands, or <code>/help command:daily</code> for details on one.</p>
 <h2 id=welcome>Welcome &amp; goodbye cards</h2><p>Run <code>/welcome channel #welcome</code>, then <code>/welcome image enabled:true</code> and <code>/welcome test</code> to preview. Customize the title, accent color and background image on the dashboard. Variables: <code>{user}</code> <code>{server}</code> <code>{count}</code>. Same for <code>/goodbye</code>.</p>
 <h2 id=levels>Leveling and rank cards</h2><p>Members earn XP by chatting (60-second cooldown). <code>/rank</code> shows an image rank card and <code>/levels</code> the leaderboard. A public leaderboard page is available at <code>/leaderboard/&lt;server id&gt;</code>. Change the XP multiplier in the dashboard.</p>
 <h2 id=automod>Auto-moderation</h2><p>Dashboard → Auto-Moderation: block invite links, all links or custom words, and choose a mod-log channel. Members with Manage Messages are never affected. Use <code>/warn</code>; 3 warnings give a 1-hour timeout.</p>
-<h2 id=voice>Temporary voice channels</h2><p>Run <code>/vc setup</code> once. Members who join <b>➕ Creator</b> get their own channel with a button panel to rename, limit, lock, trust, kick or transfer it. It is deleted when empty.</p>
+<h2 id=safety>Logs, honeypot, verification &amp; confessions</h2><p><b>Logs:</b> <code>/modlog set #channel</code> records bans, kicks, warns and timeouts. <code>/logs setup #channel</code> records edited and deleted messages, joins and leaves, role and channel changes and bans; choose what to record with <code>/logs toggle</code> or in the dashboard.</p><p><b>Honeypot:</b> <code>/honeypot setup</code> creates a trap channel (or uses one you pick). Anyone without moderator permissions who posts there is banned, softbanned, kicked or timed out automatically, which stops spam bots and hacked accounts. Put the channel near the top of your list.</p><p><b>Verification:</b> <code>/verify setup role:@Member</code> posts a button. Pressing it gives the role (or asks a small maths question first). Hide your other channels from @everyone and show them to the role. My role must be above the verified role.</p><p><b>Confessions:</b> <code>/confession setup #confessions</code>, then members use <code>/confess</code> or a button. Add a review channel if you want moderators to approve each one. Posts are anonymous, but moderators can use <code>/confession reveal</code> if a post breaks the rules, and every reveal is logged.</p><h2 id=voice>Temporary voice channels</h2><p>Run <code>/vc setup</code> once. Members who join <b>➕ Creator</b> get their own channel with a button panel to rename, limit, lock, trust, kick or transfer it. It is deleted when empty.</p>
 <h2 id=music>Music</h2><p>Join a voice channel and run <code>/music play song name</code>. Songs and artist names both work, and unclear matches show a result picker (or use <code>/music search</code> to always choose). Sources: SoundCloud, Audius, Internet Archive, Jamendo, direct audio links, Spotify track links (found on the other sources), Bandcamp/Mixcloud and more links, plus <code>/music radio</code>. YouTube works only where it is not blocked. Use the buttons on the Now Playing card to pause, skip, loop or shuffle. If something fails, run <code>/music debug</code>.</p>
 <h2 id=tickets>Tickets and giveaways</h2><p><code>/ticket</code> posts a button that opens private support channels. <code>/giveaway prize minutes</code> starts a giveaway with a button and picks a winner automatically.</p>
 <h2 id=prefix>Prefix commands &amp; shortcuts</h2><p>Every slash command also works with the prefix (<code>${esc(prefix)}</code> by default; change it in the dashboard). Many have shortcuts, for example <code>${esc(prefix)}cf 100 h</code> (coinflip), <code>${esc(prefix)}bj 500</code> (blackjack), <code>${esc(prefix)}sl all</code> (slots), <code>${esc(prefix)}h</code> (hunt), <code>${esc(prefix)}z</code> (zoo), <code>${esc(prefix)}b</code> (battle), <code>${esc(prefix)}bal</code>, <code>${esc(prefix)}d</code> (daily), <code>${esc(prefix)}play song name</code>, <code>${esc(prefix)}skip</code>, <code>${esc(prefix)}np</code>. Use <code>all</code> instead of a number to bet everything, and put multi-word text in quotes when more options follow it. <code>${esc(prefix)}help command</code> shows a command's usage and shortcuts.</p></div>`;

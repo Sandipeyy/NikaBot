@@ -1,5 +1,28 @@
 [
   {
+    "kind": "bot",
+    "title": "Honeypot, verification, logs, mod-log and confessions",
+    "date": "2026-11-11",
+    "items": [
+      "/honeypot traps spam bots and hacked accounts and removes them automatically",
+      "/verify adds a button or small-question gate before members get a role",
+      "/logs records message, member, role, channel, voice and ban events; /modlog sets the moderation log",
+      "/confess and /confession add anonymous confessions with optional review and moderator tools"
+    ]
+  },
+  {
+    "kind": "website",
+    "title": "Blue theme and better admin dashboard",
+    "date": "2026-11-11",
+    "items": [
+      "New colors and fonts that match the bot's logo",
+      "Admin overview with a setup checklist and a bot permission check",
+      "Moderation case browser with filters and CSV export",
+      "Dashboard activity log and confession moderation pages",
+      "Settings pages for logs, honeypot, verification and confessions"
+    ]
+  },
+  {
     "kind": "website",
     "title": "New look and status tools",
     "date": "2026-11-10",

@@ -12,10 +12,11 @@ Made by Sandip Gurung.
 - **Leveling:** XP for chatting, rank cards, level-up banners and leaderboards.
 - **Moderation:** warn, timeout, kick, ban, purge, lock, slowmode, cases with a mod-log and auto-moderation for invites, links and words.
 - **Music:** SoundCloud, Audius, Internet Archive, Jamendo, direct links and Spotify track links, with a queue and Now Playing buttons.
+- **Safety tools:** a honeypot trap channel, a verification button or question, server logs, a mod-log and anonymous confessions with optional review.
 - **Server tools:** welcome/goodbye image cards, autorole, tickets, polls, giveaways and temporary voice channels.
 - **Extras:** weather, dictionary, wiki, translate, GitHub lookups, anime GIF reactions and an optional AI chat.
 
-Every slash command also works as a text command with the prefix (`m!` by default).
+Every slash command except `/confess` and `/confession` also works as a text command with the prefix (`m!` by default).
 
 ## Website
 
@@ -27,7 +28,7 @@ Every slash command also works as a text command with the prefix (`m!` by defaul
 | `/changelog` | Bot and website updates |
 | `/commands`, `/features`, `/docs`, `/premium` | Information pages |
 | `/privacy`, `/terms` | Legal pages |
-| `/servers`, `/guild/:id` | Dashboard after logging in with Discord |
+| `/servers`, `/guild/:id` | Dashboard after logging in with Discord: overview with setup checklist and permission check, settings for every module, moderation case browser (filters and CSV export), dashboard activity log and confession moderation |
 | `/leaderboard/:id` | Public server leaderboard |
 | `/admin` | Owner only: schedule maintenance, post incidents, add changelog entries |
 
@@ -49,6 +50,19 @@ GET /api/analytics   ?days=30
 GET /api/changelog
 GET /api/stats       servers, users, commands
 ```
+
+## Safety tools
+
+| Command | What it does |
+| --- | --- |
+| `/modlog set #channel` | Sends bans, kicks, warns, timeouts, removed messages and honeypot catches to a channel |
+| `/logs setup #channel` | Logs message edits and deletes, joins and leaves, nickname and role changes, role and channel changes, voice activity and bans. Choose what with `/logs toggle` |
+| `/honeypot setup` | Makes a trap channel. Anyone without moderator permissions who posts there is banned, softbanned, kicked or timed out |
+| `/verify setup role:@Member` | Posts a Verify button. Mode `question` asks a small maths question first |
+| `/confess` | Anonymous confession. Moderators set it up with `/confession setup` and can add a review channel |
+| `/confession reveal` | Shows the sender of a confession. Every reveal is written to the mod-log and the dashboard activity log |
+
+Notes: logging deleted and edited messages needs the bot to keep a few recent messages in memory (50 per channel for 30 minutes). The bot needs the Ban Members, Kick Members, Moderate Members, Manage Roles and Manage Channels permissions for these features, and its role must sit above the verified role.
 
 ## Setup
 
@@ -101,6 +115,12 @@ music.js          music player
 tempvc.js         temporary voice channels
 upgrades.js       help menu, info embeds, moderation cases, polls, giveaways
 welcome.js        welcome and goodbye messages
+logs.js           /modlog and /logs, event listeners
+honeypot.js       trap channel
+verify.js         verification button and question
+confession.js     anonymous confessions
+adminlog.js       dashboard activity log
+adminpages.js     overview, cases, activity and confession pages
 prefixrun.js      text-command versions of every slash command
 monitor.js        health checks, uptime, incidents, maintenance
 usage.js          daily command counts for analytics

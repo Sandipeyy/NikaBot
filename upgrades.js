@@ -1019,4 +1019,4 @@ async function tick(client) {
   }
 }
 
-module.exports = { commands, helpPayload, helpMenu, endGiveaway, tick };
+module.exports = { commands, helpPayload, helpMenu, endGiveaway, tick, newCase };

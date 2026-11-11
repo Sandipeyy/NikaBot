@@ -47,6 +47,7 @@ module.exports = {
     'nick',
     'role',
   ],
+  Safety: ['honeypot', 'verify', 'logs', 'modlog', 'confess', 'confession'],
   Music: ['music'],
   Voice: ['vc'],
   AI: ['chat'],

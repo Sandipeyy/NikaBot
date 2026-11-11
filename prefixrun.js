@@ -276,10 +276,23 @@ function adapter(m, j, sub, vals) {
   };
 }
 
+// these would show the answer (or the sender) in public if run with the prefix
+const SLASH_ONLY = new Set(['confess', 'confession']);
+
 async function execute(m, r, args, pfx, lim) {
   const { PermissionsBitField } = require('discord.js');
   const j = r.cmd.data.toJSON();
   const say = t => m.reply({ content: t, allowedMentions: { repliedUser: false } }).catch(() => {});
+
+  if (SLASH_ONLY.has(j.name)) {
+    if (j.name === 'confess') m.delete().catch(() => {});
+    const note = await m.channel.send(
+      `${m.author}, use the slash command /${j.name} for this one so it stays private.`,
+    ).catch(() => null);
+    if (note) setTimeout(() => note.delete().catch(() => {}), 8000);
+    return;
+  }
+
   if ((require('./db').settings(m.guild.id).disabled_cmds || '').split(',').includes(j.name)
     && !m.member.permissions.has(PermissionsBitField.Flags.ManageGuild))
     return say('This command is disabled in this server.');

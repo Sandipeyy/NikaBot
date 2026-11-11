@@ -2,14 +2,16 @@
 const { db } = require('./db');
 const meta = require('./meta');
 
-db.exec(`
+db.exec(
+  `
 CREATE TABLE IF NOT EXISTS command_daily (
   date TEXT,
   command TEXT,
   uses INTEGER DEFAULT 0,
   PRIMARY KEY (date, command)
 );
-`);
+`,
+);
 
 const DAY = 86400000;
 const dayKey = ms => new Date(ms).toISOString().slice(0, 10);
@@ -18,10 +20,11 @@ const bump = db.prepare(
 );
 
 const categoryOf = {};
-for (const [category, names] of Object.entries(meta)) names.forEach(n => (categoryOf[n] = category));
+for (const [category, names] of Object.entries(meta)) names.forEach(n => categoryOf[n] = category);
 
 function record(command) {
   if (!command) return;
+
   try {
     bump.run(dayKey(Date.now()), String(command).slice(0, 40));
   } catch (e) {
@@ -31,7 +34,7 @@ function record(command) {
 
 const change = (now, before) => {
   if (before === 0) return now > 0 ? null : 0; // null means brand new
-  return Math.round(((now - before) / before) * 100);
+  return Math.round((now - before) / before * 100);
 };
 
 function report(requested) {
@@ -45,8 +48,9 @@ function report(requested) {
   const previous = rows.filter(r => r.date < split);
 
   const perDay = {};
-  current.forEach(r => (perDay[r.date] = (perDay[r.date] || 0) + r.uses));
+  current.forEach(r => perDay[r.date] = (perDay[r.date] || 0) + r.uses);
   const series = [];
+
   for (let i = days - 1; i >= 0; i--) {
     const date = dayKey(now - i * DAY);
     series.push({ date, total: perDay[date] || 0 });
@@ -54,7 +58,7 @@ function report(requested) {
 
   const sum = list => {
     const out = {};
-    list.forEach(r => (out[r.command] = (out[r.command] || 0) + r.uses));
+    list.forEach(r => out[r.command] = (out[r.command] || 0) + r.uses);
     return out;
   };
   const now_ = sum(current);
@@ -62,11 +66,12 @@ function report(requested) {
   const total = series.reduce((a, d) => a + d.total, 0);
   const previousTotal = Object.values(before).reduce((a, n) => a + n, 0);
 
-  const top = Object.entries(now_)
+  const top = Object
+    .entries(now_)
     .map(([name, count]) => ({
       name,
       count,
-      share: total ? Math.round((count / total) * 1000) / 10 : 0,
+      share: total ? Math.round(count / total * 1000) / 10 : 0,
       change: change(count, before[name] || 0),
       category: categoryOf[name] || 'Other',
     }))
@@ -78,10 +83,10 @@ function report(requested) {
     .sort((a, b) => b.delta - a.delta);
 
   const categories = {};
-  top.forEach(c => (categories[c.category] = (categories[c.category] || 0) + c.count));
+  top.forEach(c => categories[c.category] = (categories[c.category] || 0) + c.count);
 
   const trackedDays = new Set(current.map(r => r.date)).size;
-  const busiest = series.reduce((best, d) => (d.total > (best?.total || 0) ? d : best), null);
+  const busiest = series.reduce((best, d) => d.total > (best?.total || 0) ? d : best, null);
 
   return {
     days,
@@ -94,8 +99,13 @@ function report(requested) {
     top: top.slice(0, 10),
     rising: movers.filter(m => m.delta > 0).slice(0, 5),
     falling: movers.filter(m => m.delta < 0).slice(-5).reverse(),
-    categories: Object.entries(categories)
-      .map(([name, count]) => ({ name, count, share: total ? Math.round((count / total) * 1000) / 10 : 0 }))
+    categories: Object
+      .entries(categories)
+      .map(([name, count]) => ({
+        name,
+        count,
+        share: total ? Math.round(count / total * 1000) / 10 : 0,
+      }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8),
   };

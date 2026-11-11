@@ -14,18 +14,42 @@ const FEATURES = [
   ['Temp voice', 'volume', 'Join-to-create channels that members control themselves.'],
   ['Giveaways', 'gift', 'One-click giveaways with automatic winners.'],
   ['Tickets', 'ticket', 'Private support channels opened with a button.'],
-  ['Welcome and goodbye', 'smile', 'Image cards with the member avatar, custom messages and autorole.'],
+  [
+    'Welcome and goodbye',
+    'smile',
+    'Image cards with the member avatar, custom messages and autorole.',
+  ],
   ['Live data', 'globe', 'Weather, dictionary, wiki, translate and GitHub lookups.'],
   ['Reactions', 'heart', 'Hug, pat, slap and dance with anime GIFs.'],
   ['AI chat', 'bot', 'Chat with an AI assistant inside Discord.'],
 ];
 
 const GROUPS = [
-  ['Economy and games', 'Earn a daily reward, work for coins, hunt animals for your zoo and risk it all on the slots.', ['daily', 'work', 'hunt', 'slots', 'blackjack', 'shop']],
-  ['Levels and rank cards', 'Members earn XP for chatting. Rank cards and public leaderboards show who is on top.', ['rank', 'levels', 'leaderboard']],
-  ['Moderation', 'Warn, timeout, kick or ban with case numbers and a mod-log, plus auto-moderation for invites, links and words.', ['warn', 'ban', 'timeout', 'purge', 'slowmode']],
-  ['Music', 'Play songs and radio in a voice channel with a queue, loop, shuffle and a Now Playing card.', ['music', 'vc']],
-  ['Server tools', 'Welcome cards, autorole, tickets, polls and giveaways, all set up from Discord or the dashboard.', ['welcome', 'ticket', 'giveaway', 'poll']],
+  [
+    'Economy and games',
+    'Earn a daily reward, work for coins, hunt animals for your zoo and risk it all on the slots.',
+    ['daily', 'work', 'hunt', 'slots', 'blackjack', 'shop'],
+  ],
+  [
+    'Levels and rank cards',
+    'Members earn XP for chatting. Rank cards and public leaderboards show who is on top.',
+    ['rank', 'levels', 'leaderboard'],
+  ],
+  [
+    'Moderation',
+    'Warn, timeout, kick or ban with case numbers and a mod-log, plus auto-moderation for invites, links and words.',
+    ['warn', 'ban', 'timeout', 'purge', 'slowmode'],
+  ],
+  [
+    'Music',
+    'Play songs and radio in a voice channel with a queue, loop, shuffle and a Now Playing card.',
+    ['music', 'vc'],
+  ],
+  [
+    'Server tools',
+    'Welcome cards, autorole, tickets, polls and giveaways, all set up from Discord or the dashboard.',
+    ['welcome', 'ticket', 'giveaway', 'poll'],
+  ],
 ];
 
 const dur = ms => {
@@ -48,62 +72,62 @@ const uptimeText = ms => {
 };
 
 const dayName = date =>
-  new Date(date + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  new Date(date + 'T00:00:00Z').toLocaleDateString(
+    'en-US',
+    { month: 'short', day: 'numeric', timeZone: 'UTC' },
+  );
 
 function dayInfo(day) {
   if (day.status === 'none') return 'No data recorded';
   if (day.status === 'maintenance') return 'Planned maintenance';
   const parts = [`${day.uptime}% uptime`];
   if (day.down > 0) parts.push(`${dur(day.down)} down`);
-  if (day.incidents) parts.push(`${day.incidents} ${day.incidents === 1 ? 'incident' : 'incidents'}`);
+  if (day.incidents)
+    parts.push(`${day.incidents} ${day.incidents === 1 ? 'incident' : 'incidents'}`);
   return parts.join(', ');
 }
 
 // the 30 day strip. It is rendered on the server, the script in layout.js adds the tooltips.
 function strip(days) {
-  const bars = days
-    .map(d => {
-      const info = dayInfo(d);
-      return `<button type="button" class="d ${d.status}" data-day="${dayName(d.date)}" data-info="${esc(info)}" aria-label="${dayName(d.date)}: ${esc(info)}"></button>`;
-    })
-    .join('');
+  const bars = days.map(d => {
+    const info = dayInfo(d);
+    return `<button type="button" class="d ${d.status}" data-day="${dayName(d.date)}" data-info="${esc(info)}" aria-label="${dayName(d.date)}: ${esc(info)}"></button>`;
+  }).join('');
+
   return `<div class="uptime"><div class="strip" role="group" aria-label="Uptime for each of the last 30 days">${bars}</div><div class="axis"><span>30 days ago</span><span>Today</span></div></div>`;
 }
 
 // ---------- home ----------
-
 function landing(client, name, snap, recent) {
   const up = snap.uptime;
   const servers = client.guilds.cache.size;
   const users = client.guilds.cache.reduce((a, g) => a + g.memberCount, 0);
   const upcoming = snap.maintenance.active.concat(snap.maintenance.upcoming).slice(0, 3);
 
-  const groups = GROUPS.map(
-    ([title, text, cmds]) => `
+  const groups = GROUPS.map(([title, text, cmds]) => `
     <div class="frow">
       <h3>${title}</h3>
       <div>
         <p>${text}</p>
         <div class="chips">${cmds.map(c => `<a class="chip" href="/commands?q=${c}">/${c}</a>`).join('')}</div>
       </div>
-    </div>`,
-  ).join('');
+    </div>`).join('');
 
-  const updates = recent.length
-    ? `<ul class="feed">${recent
+  const updates =
+    recent.length
+      ? `<ul class="feed">${recent
         .map(
           e => `<li><span class="when">${e.kind === 'bot' ? 'Bot' : 'Website'}, ${when(e.at)}</span><h3>${esc(e.title)}</h3>${e.items[0] ? `<p>${esc(e.items[0])}</p>` : ''}</li>`,
         )
         .join('')}</ul><p><a href="/changelog" style="text-decoration:underline">See the full changelog</a></p>`
-    : '<p class="empty">No updates posted yet.</p>';
+      : '<p class="empty">No updates posted yet.</p>';
 
-  const maintenance = upcoming.length
-    ? upcoming
-        .map(
-          m => `<div class="note"><h3>${esc(m.title)}</h3>${m.info ? `<p>${esc(m.info)}</p>` : ''}<span class="when">${when(m.starts, true)} to ${when(m.ends, true)}</span></div>`,
-        )
-        .join('')
-    : '<p class="empty">Nothing is scheduled. If the bot needs downtime it will be announced here and on the status page first.</p>';
+  const maintenance =
+    upcoming.length
+      ? upcoming.map(m => `<div class="note"><h3>${esc(m.title)}</h3>${m.info ? `<p>${esc(m.info)}</p>` : ''}<span class="when">${when(m.starts, true)} to ${when(m.ends, true)}</span></div>`).join(
+        '',
+      )
+      : '<p class="empty">Nothing is scheduled. If the bot needs downtime it will be announced here and on the status page first.</p>';
 
   return `
 <div class="wrap">
@@ -156,6 +180,7 @@ function features() {
 
 function premium() {
   const support = esc(process.env.SUPPORT_URL || '#');
+
   return `<div class="wrap"><div class="head"><h1 class="t">Simple pricing</h1><p class="sub">Everything essential is free, forever.</p></div>
 <div class="grid" style="max-width:760px">
   <div class="card"><h3>Free</h3><div class="price">$0</div><p>All commands, the dashboard, leaderboards, music and moderation.</p><br><a class="btn" href="/invite">Get started</a></div>
@@ -164,16 +189,19 @@ function premium() {
 }
 
 // ---------- commands ----------
-
 function commands(client, prefix) {
   const all = new Map((client.commandList || []).map(c => [c.data.name, c.data.description]));
-  const chips = Object.keys(meta).map(c => `<button type="button" class="chip" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
-  const sections = Object.entries(meta)
-    .map(
-      ([cat, names]) => `<section class="cmdgroup" data-cat="${esc(cat)}"><h2 class="cat">${esc(cat)}</h2>${names
+  const chips = Object
+    .keys(meta)
+    .map(c => `<button type="button" class="chip" data-cat="${esc(c)}">${esc(c)}</button>`)
+    .join('');
+  const sections = Object
+    .entries(meta)
+    .map((
+      [cat, names],
+    ) => `<section class="cmdgroup" data-cat="${esc(cat)}"><h2 class="cat">${esc(cat)}</h2>${names
         .map(n => `<div class="cmd" data-s="${esc(n)} ${esc(all.get(n))}"><code>/${esc(n)}</code><span>${esc(all.get(n))}</span></div>`)
-        .join('')}</section>`,
-    )
+        .join('')}</section>`)
     .join('');
 
   return `<div class="wrap"><div class="head"><h1 class="t">Commands</h1><p class="sub">Use <b>/</b> in Discord, or the <code>${esc(prefix)}</code> prefix, for example <code>${esc(prefix)}help</code>.</p></div>
@@ -215,12 +243,16 @@ const COMMANDS_SCRIPT = `<script>
 </script>`;
 
 // ---------- status ----------
-
-const BADGE = { resolved: ['ok', 'Resolved'], monitoring: ['warn', 'Monitoring'], investigating: ['bad', 'Investigating'] };
+const BADGE = {
+  resolved: ['ok', 'Resolved'],
+  monitoring: ['warn', 'Monitoring'],
+  investigating: ['bad', 'Investigating'],
+};
 
 function sparkline(samples) {
   const pts = samples.map(s => s.gateway).filter(v => typeof v === 'number' && v >= 0);
-  if (pts.length < 2) return '<p class="empty">Latency history fills in a few minutes after each restart.</p>';
+  if (pts.length < 2)
+    return '<p class="empty">Latency history fills in a few minutes after each restart.</p>';
   const W = 600;
   const H = 90;
   const pad = 8;
@@ -228,9 +260,13 @@ function sparkline(samples) {
   const min = Math.min(...pts);
   const span = Math.max(max - min, 20);
   const step = W / (pts.length - 1);
-  const d = pts
-    .map((v, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)} ${(H - pad - ((v - min) / span) * (H - pad * 2)).toFixed(1)}`)
-    .join(' ');
+  const d = pts.map((
+    v,
+    i,
+  ) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)} ${(H - pad - ((v - min) / span) * (H - pad * 2)).toFixed(1)}`).join(
+    ' ',
+  );
+
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Latency over the last hour"><path class="area" d="${d} L${W} ${H} L0 ${H} Z"/><path class="line" d="${d}"/></svg>
 <p class="sub" style="font-size:14px;margin:8px 0 0">Now ${pts[pts.length - 1]} ms, best ${min} ms, worst ${max} ms over the last hour.</p>`;
 }
@@ -238,7 +274,9 @@ function sparkline(samples) {
 function incidentHtml(i) {
   const [tone, label] = BADGE[i.status] || BADGE.investigating;
   const kind = i.severity === 'outage' ? 'Outage' : 'Degraded performance';
-  const meta = i.resolved ? `${kind}, lasted ${dur(i.duration)}` : `${kind}, ongoing for ${dur(i.duration)}`;
+  const meta =
+    i.resolved ? `${kind}, lasted ${dur(i.duration)}` : `${kind}, ongoing for ${dur(i.duration)}`;
+
   return `<article class="incident"><div class="hd"><h3>${esc(i.title)}</h3><span class="pill ${tone}">${label}</span></div>
 <p class="meta">${meta}</p>
 <ul class="timeline">${i.updates.map(u => `<li class="${u.status === 'resolved' ? 'done' : ''}"><b>${esc(u.status)}</b>: ${esc(u.message)}<span class="when">${when(u.at, true)}</span></li>`).join('')}</ul></article>`;
@@ -249,46 +287,48 @@ function statusPage(snap, name) {
   const total = snap.incidents.active.concat(snap.incidents.past);
 
   const alerts =
-    snap.incidents.active
-      .map(i => `<div class="note ${i.severity}"><h3>${esc(i.title)}</h3><p>${esc(i.updates[0]?.message || '')}</p><span class="when">Started ${when(i.started, true)}</span></div>`)
-      .join('') +
-    snap.maintenance.active
-      .map(m => `<div class="note"><h3>Maintenance in progress: ${esc(m.title)}</h3>${m.info ? `<p>${esc(m.info)}</p>` : ''}<span class="when">Expected to finish ${when(m.ends, true)}</span></div>`)
-      .join('');
+    snap.incidents.active.map(i => `<div class="note ${i.severity}"><h3>${esc(i.title)}</h3><p>${esc(i.updates[0]?.message || '')}</p><span class="when">Started ${when(i.started, true)}</span></div>`).join(
+      '',
+    )
+      + snap.maintenance.active.map(m => `<div class="note"><h3>Maintenance in progress: ${esc(m.title)}</h3>${m.info ? `<p>${esc(m.info)}</p>` : ''}<span class="when">Expected to finish ${when(m.ends, true)}</span></div>`).join(
+        '',
+      );
 
-  const comps = snap.components
-    .map(c => {
-      const ms = c.id === 'gateway' && snap.ping >= 0 ? snap.ping : c.ms;
-      const text = c.status === 'operational' ? c.detail : `${c.status === 'outage' ? 'Down' : 'Degraded'}: ${c.detail}`;
-      return `<li><span class="dot ${c.status}"></span><span class="name">${esc(c.name)}</span><span class="detail">${esc(text)}</span><span class="ms">${typeof ms === 'number' ? ms + ' ms' : ''}</span></li>`;
-    })
-    .join('');
+  const comps = snap.components.map(c => {
+    const ms = c.id === 'gateway' && snap.ping >= 0 ? snap.ping : c.ms;
+    const text =
+      c.status === 'operational'
+        ? c.detail
+        : `${c.status === 'outage' ? 'Down' : 'Degraded'}: ${c.detail}`;
+    return `<li><span class="dot ${c.status}"></span><span class="name">${esc(c.name)}</span><span class="detail">${esc(text)}</span><span class="ms">${typeof ms === 'number' ? ms + ' ms' : ''}</span></li>`;
+  }).join('');
 
-  const shards = snap.shards.length
-    ? `<table class="tbl"><tr><th>Shard</th><th>Status</th><th>Ping</th></tr>${snap.shards
+  const shards =
+    snap.shards.length
+      ? `<table class="tbl"><tr><th>Shard</th><th>Status</th><th>Ping</th></tr>${snap.shards
         .map(s => `<tr><td><span class="dot ${s.ready ? 'g' : 'r'}"></span> #${s.id}</td><td>${s.ready ? 'Ready' : 'Not ready'}</td><td>${Math.round(s.ping)} ms</td></tr>`)
         .join('')}</table>`
-    : '';
+      : '';
 
-  const maint = snap.maintenance.active
+  const maint = snap.maintenance
+    .active
     .concat(snap.maintenance.upcoming)
-    .map(
-      m => `<div class="note"><h3>${esc(m.title)} <span class="pill info">${snap.maintenance.active.includes(m) ? 'In progress' : 'Scheduled'}</span></h3>${m.info ? `<p>${esc(m.info)}</p>` : ''}<span class="when">${when(m.starts, true)} to ${when(m.ends, true)}</span></div>`,
+    .map(m => `<div class="note"><h3>${esc(m.title)} <span class="pill info">${snap.maintenance.active.includes(m) ? 'In progress' : 'Scheduled'}</span></h3>${m.info ? `<p>${esc(m.info)}</p>` : ''}<span class="when">${when(m.starts, true)} to ${when(m.ends, true)}</span></div>`)
+    .concat(
+      snap.maintenance.recent.map(m => `<div class="note" style="opacity:.75"><h3>${esc(m.title)} <span class="pill">Completed</span></h3><span class="when">${when(m.starts, true)} to ${when(m.ends, true)}</span></div>`),
     )
-    .concat(snap.maintenance.recent.map(m => `<div class="note" style="opacity:.75"><h3>${esc(m.title)} <span class="pill">Completed</span></h3><span class="when">${when(m.starts, true)} to ${when(m.ends, true)}</span></div>`))
     .join('');
 
   let lastDay = '';
-  const incidents = total.length
-    ? total
-        .map(i => {
-          const day = new Date(i.started).toISOString().slice(0, 10);
-          const label = day !== lastDay ? `<p class="daylabel">${when(i.started)}</p>` : '';
-          lastDay = day;
-          return label + incidentHtml(i);
-        })
-        .join('')
-    : '<p class="empty">No incidents in the last 30 days.</p>';
+  const incidents =
+    total.length
+      ? total.map(i => {
+        const day = new Date(i.started).toISOString().slice(0, 10);
+        const label = day !== lastDay ? `<p class="daylabel">${when(i.started)}</p>` : '';
+        lastDay = day;
+        return label + incidentHtml(i);
+      }).join('')
+      : '<p class="empty">No incidents in the last 30 days.</p>';
 
   return `<div class="wrap" id="live">
 <div class="head"><h1 class="t">${esc(name)} status</h1><p class="sub">Live health, 30 days of uptime, past incidents and planned maintenance. Times are shown in your own time zone.</p></div>
@@ -342,9 +382,9 @@ setInterval(function () {
 </script>`;
 
 // ---------- analytics ----------
-
 function rankList(rows, withChange) {
   const top = rows[0]?.count || 1;
+
   return `<ol class="rank">${rows
     .map(c => {
       let badge = '';
@@ -359,13 +399,23 @@ function rankList(rows, withChange) {
 }
 
 function analyticsPage(r) {
-  const range = [7, 30, 90].map(d => `<a class="chip ${r.days === d ? 'on' : ''}" href="/analytics?days=${d}">Last ${d} days</a>`).join('');
-  const change = r.change === null ? 'New' : r.change === 0 ? 'No change' : `${r.change > 0 ? '+' : ''}${r.change}%`;
+  const range = [
+    7,
+    30,
+    90,
+  ].map(d => `<a class="chip ${r.days === d ? 'on' : ''}" href="/analytics?days=${d}">Last ${d} days</a>`).join(
+    '',
+  );
+  const change =
+    r.change === null
+      ? 'New'
+      : r.change === 0 ? 'No change' : `${r.change > 0 ? '+' : ''}${r.change}%`;
   const busiest = r.busiest && r.busiest.total ? dayName(r.busiest.date) : '–';
 
-  const moves = r.rising.length || r.falling.length
-    ? `<ul class="rank">${r.rising.map(c => `<li><span class="nm">${esc(c.name)}</span><span class="ct"><span class="delta up">+${c.delta.toLocaleString()} uses</span></span></li>`).join('')}${r.falling.map(c => `<li><span class="nm">${esc(c.name)}</span><span class="ct"><span class="delta down">${c.delta.toLocaleString()} uses</span></span></li>`).join('')}</ul>`
-    : '<p class="empty">Trends show up once there are two full periods to compare.</p>';
+  const moves =
+    r.rising.length || r.falling.length
+      ? `<ul class="rank">${r.rising.map(c => `<li><span class="nm">${esc(c.name)}</span><span class="ct"><span class="delta up">+${c.delta.toLocaleString()} uses</span></span></li>`).join('')}${r.falling.map(c => `<li><span class="nm">${esc(c.name)}</span><span class="ct"><span class="delta down">${c.delta.toLocaleString()} uses</span></span></li>`).join('')}</ul>`
+      : '<p class="empty">Trends show up once there are two full periods to compare.</p>';
 
   return `<div class="wrap"><div class="head"><h1 class="t">Command analytics</h1><p class="sub">Which commands people use the most and how usage is moving. History starts on the day tracking was switched on.</p></div>
 <nav class="chips" style="margin-bottom:20px" aria-label="Time range">${range}</nav>
@@ -420,40 +470,56 @@ const analyticsScript = series => `<script>
 </script>`;
 
 // ---------- changelog ----------
-
 function changelogPage(entries, kind) {
   const filter = ['bot', 'website'].includes(kind) ? kind : 'all';
   const shown = entries.filter(e => filter === 'all' || e.kind === filter);
-  const tab = (value, label) => `<a class="chip ${filter === value ? 'on' : ''}" href="/changelog${value === 'all' ? '' : '?show=' + value}">${label}</a>`;
+  const tab = (
+    value,
+    label,
+  ) => `<a class="chip ${filter === value ? 'on' : ''}" href="/changelog${value === 'all' ? '' : '?show=' + value}">${label}</a>`;
 
-  const list = shown.length
-    ? `<ol class="log">${shown
+  const list =
+    shown.length
+      ? `<ol class="log">${shown
         .map(
           e => `<li><div><span class="pill">${e.kind === 'bot' ? 'Bot' : 'Website'}</span><div class="when">${when(e.at)}</div></div><div><h2>${esc(e.title)}</h2>${e.items.length ? `<ul>${e.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}</div></li>`,
         )
         .join('')}</ol>`
-    : '<p class="empty">No updates to show yet.</p>';
+      : '<p class="empty">No updates to show yet.</p>';
 
   return `<div class="wrap"><div class="head"><h1 class="t">Changelog</h1><p class="sub">What changed in the bot and on this website, newest first.</p></div>
 <nav class="chips" style="margin-bottom:20px" aria-label="Filter updates">${tab('all', 'All')}${tab('website', 'Website')}${tab('bot', 'Bot')}</nav>${list}</div>`;
 }
 
 // ---------- errors ----------
-
 function errorPage(code, heading, text) {
   return `<div class="wrap"><div class="errpage"><div class="errcode" aria-hidden="true">${code}</div><h1 class="t" style="margin-top:8px">${heading}</h1><p class="sub">${text}</p>
 <div class="rowb"><a class="btn" href="/">Go home</a><a class="btn g" href="/commands">Browse commands</a><a class="btn g" href="/status">Check status</a></div></div></div>`;
 }
 
-const notFound = () => errorPage(404, 'We could not find that page', 'The link may be old or mistyped. Try one of these instead.');
-const serverError = () => errorPage(500, 'Something went wrong on our side', 'The page could not load. Try again in a moment, or check the status page for known problems.');
+const notFound = () =>
+  errorPage(
+    404,
+    'We could not find that page',
+    'The link may be old or mistyped. Try one of these instead.',
+  );
+const serverError = () =>
+  errorPage(
+    500,
+    'Something went wrong on our side',
+    'The page could not load. Try again in a moment, or check the status page for known problems.',
+  );
 
 // ---------- owner admin ----------
-
 function adminPage(snap, entries, flash) {
   const maint = snap.maintenance.active.concat(snap.maintenance.upcoming);
   const incidents = snap.incidents.active.concat(snap.incidents.past.slice(0, 8));
-  const post = (action, label, cls = 'btn g s', extra = '') => `<form method="post" action="/admin/${action}" style="display:inline">${extra}<button class="${cls}" type="submit">${label}</button></form>`;
+  const post = (
+    action,
+    label,
+    cls = 'btn g s',
+    extra = '',
+  ) => `<form method="post" action="/admin/${action}" style="display:inline">${extra}<button class="${cls}" type="submit">${label}</button></form>`;
 
   return `<div class="wrap adm"><div class="head"><h1 class="t">Status and content</h1><p class="sub">Outages and recoveries are recorded automatically. Use this page for planned maintenance, manual incident notes and changelog entries.</p></div>
 ${flash ? `<div class="ok">${esc(flash)}</div>` : ''}

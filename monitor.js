@@ -3,7 +3,8 @@
 const { Routes } = require('discord.js');
 const { db } = require('./db');
 
-db.exec(`
+db.exec(
+  `
 CREATE TABLE IF NOT EXISTS uptime_day (
   date TEXT PRIMARY KEY,
   up_ms INTEGER DEFAULT 0,
@@ -39,7 +40,8 @@ CREATE TABLE IF NOT EXISTS maintenance (
 );
 CREATE TABLE IF NOT EXISTS monitor_state (key TEXT PRIMARY KEY, value TEXT);
 CREATE INDEX IF NOT EXISTS idx_incidents_started ON incidents(started);
-`);
+`,
+);
 
 const TICK = 60 * 1000;
 const GAP_LIMIT = 150 * 1000; // silence longer than this counts as downtime
@@ -59,24 +61,28 @@ let maintCache = { at: 0, active: [], upcoming: [], recent: [] };
 const dayKey = ms => new Date(ms).toISOString().slice(0, 10);
 const getState = key => db.prepare('SELECT value FROM monitor_state WHERE key = ?').get(key)?.value;
 const setState = (key, value) =>
-  db.prepare('INSERT OR REPLACE INTO monitor_state(key, value) VALUES(?, ?)').run(key, String(value));
+  db.prepare('INSERT OR REPLACE INTO monitor_state(key, value) VALUES(?, ?)').run(
+    key,
+    String(value),
+  );
 
 function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
-  ]);
+  return Promise.race(
+    [promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))],
+  );
 }
 
 // split a time range at UTC midnight so each day gets its own share
 function splitByDay(from, to) {
   const parts = [];
   let cursor = from;
+
   while (cursor < to) {
     const next = Math.min((Math.floor(cursor / DAY) + 1) * DAY, to);
     parts.push({ date: dayKey(cursor), ms: next - cursor });
     cursor = next;
   }
+
   return parts;
 }
 
@@ -91,20 +97,20 @@ function addTime(from, to, state, ping) {
   const col = COLUMN[state];
   if (!col || to <= from) return;
   const parts = splitByDay(from, to);
+
   parts.forEach((part, i) => {
     db.prepare('INSERT OR IGNORE INTO uptime_day(date) VALUES(?)').run(part.date);
     db.prepare(`UPDATE uptime_day SET ${col} = ${col} + ? WHERE date = ?`).run(part.ms, part.date);
+
     if (i === parts.length - 1 && ping >= 0) {
-      db.prepare('UPDATE uptime_day SET ping_sum = ping_sum + ?, ping_n = ping_n + 1 WHERE date = ?').run(
-        Math.round(ping),
-        part.date,
-      );
+      db.prepare(
+        'UPDATE uptime_day SET ping_sum = ping_sum + ?, ping_n = ping_n + 1 WHERE date = ?',
+      ).run(Math.round(ping), part.date);
     }
   });
 }
 
 // ---------- checks ----------
-
 async function runChecks(client) {
   const components = [];
   const shards = [...client.ws.shards.values()];
@@ -112,17 +118,42 @@ async function runChecks(client) {
   const ping = Math.round(client.ws.ping);
 
   if (!ready) {
-    components.push({ id: 'gateway', name: 'Discord connection', status: 'outage', detail: 'Not connected to Discord', ms: null });
+    components.push({
+      id: 'gateway',
+      name: 'Discord connection',
+      status: 'outage',
+      detail: 'Not connected to Discord',
+      ms: null,
+    });
   } else if (ping > 600) {
-    components.push({ id: 'gateway', name: 'Discord connection', status: 'degraded', detail: 'Slow gateway responses', ms: ping });
+    components.push({
+      id: 'gateway',
+      name: 'Discord connection',
+      status: 'degraded',
+      detail: 'Slow gateway responses',
+      ms: ping,
+    });
   } else {
-    components.push({ id: 'gateway', name: 'Discord connection', status: 'operational', detail: 'Connected', ms: ping >= 0 ? ping : null });
+    components.push({
+      id: 'gateway',
+      name: 'Discord connection',
+      status: 'operational',
+      detail: 'Connected',
+      ms: ping >= 0 ? ping : null,
+    });
   }
 
   if (!ready) {
-    components.push({ id: 'api', name: 'Discord API', status: 'outage', detail: 'Waiting for Discord', ms: null });
+    components.push({
+      id: 'api',
+      name: 'Discord API',
+      status: 'outage',
+      detail: 'Waiting for Discord',
+      ms: null,
+    });
   } else {
     const t0 = Date.now();
+
     try {
       await withTimeout(client.rest.get(Routes.gateway()), 5000);
       const ms = Date.now() - t0;
@@ -134,7 +165,13 @@ async function runChecks(client) {
         ms,
       });
     } catch {
-      components.push({ id: 'api', name: 'Discord API', status: 'outage', detail: 'Requests are failing', ms: null });
+      components.push({
+        id: 'api',
+        name: 'Discord API',
+        status: 'outage',
+        detail: 'Requests are failing',
+        ms: null,
+      });
     }
   }
 
@@ -150,16 +187,30 @@ async function runChecks(client) {
       ms,
     });
   } catch {
-    components.push({ id: 'database', name: 'Database', status: 'outage', detail: 'Not responding', ms: null });
+    components.push({
+      id: 'database',
+      name: 'Database',
+      status: 'outage',
+      detail: 'Not responding',
+      ms: null,
+    });
   }
 
-  components.push({ id: 'website', name: 'Website', status: 'operational', detail: 'Online', ms: null });
+  components.push({
+    id: 'website',
+    name: 'Website',
+    status: 'operational',
+    detail: 'Online',
+    ms: null,
+  });
 
   // music is optional (needs ffmpeg etc), so it is shown but never counts against uptime
   let music = false;
+
   try {
     music = require('./music').enabled();
   } catch {}
+
   components.push({
     id: 'music',
     name: 'Music player',
@@ -181,11 +232,10 @@ function classify(components) {
 }
 
 // ---------- incidents ----------
-
 function openIncident(title, severity, startedAt, message, auto = 1) {
-  const id = db
-    .prepare('INSERT INTO incidents(title, severity, status, auto, started) VALUES(?,?,?,?,?)')
-    .run(title, severity, 'investigating', auto, startedAt).lastInsertRowid;
+  const id = db.prepare(
+    'INSERT INTO incidents(title, severity, status, auto, started) VALUES(?,?,?,?,?)',
+  ).run(title, severity, 'investigating', auto, startedAt).lastInsertRowid;
   db.prepare('INSERT INTO incident_updates(incident, at, status, message) VALUES(?,?,?,?)').run(
     id,
     Date.now(),
@@ -198,13 +248,19 @@ function openIncident(title, severity, startedAt, message, auto = 1) {
 
 function addUpdate(id, status, message) {
   const now = Date.now();
-  db.prepare('INSERT INTO incident_updates(incident, at, status, message) VALUES(?,?,?,?)').run(id, now, status, message);
+  db.prepare('INSERT INTO incident_updates(incident, at, status, message) VALUES(?,?,?,?)').run(
+    id,
+    now,
+    status,
+    message,
+  );
   db.prepare('UPDATE incidents SET status = ?, resolved = ? WHERE id = ?').run(
     status,
     status === 'resolved' ? now : null,
     id,
   );
-  if (status === 'resolved' && String(getState('open_incident')) === String(id)) setState('open_incident', '');
+  if (status === 'resolved' && String(getState('open_incident')) === String(id))
+    setState('open_incident', '');
 }
 
 function incidentTitle(components) {
@@ -216,9 +272,9 @@ function incidentTitle(components) {
 }
 
 // ---------- the loop ----------
-
 async function tick(client) {
   const now = Date.now();
+
   try {
     const { components, ready } = await runChecks(client);
     const booting = !ready && now - started < BOOT_GRACE;
@@ -227,6 +283,7 @@ async function tick(client) {
     const inMaintenance = maintCache.active.length > 0;
 
     let state = health;
+
     if (booting) state = 'starting';
     else if (inMaintenance && health !== 'operational') state = 'maintenance';
 
@@ -243,10 +300,12 @@ async function tick(client) {
     if (lastTick && state !== 'starting') addTime(lastTick, now, state, get('gateway') ?? -1);
 
     const openId = Number(getState('open_incident')) || null;
+
     if (state === 'outage') {
       badTicks++;
       slowTicks = 0;
       firstBadAt = firstBadAt || lastTick || now;
+
       if (badTicks >= 2 && !openId) {
         openIncident(
           incidentTitle(components),
@@ -261,6 +320,7 @@ async function tick(client) {
       slowTicks++;
       badTicks = 0;
       firstBadAt = firstBadAt || lastTick || now;
+
       if (slowTicks >= 3 && !openId) {
         openIncident(
           incidentTitle(components),
@@ -295,8 +355,14 @@ function recover() {
 
   if (gap > GAP_LIMIT) {
     addTime(last, now, 'outage');
+
     if (!openId) {
-      const id = openIncident('The bot was unreachable', 'outage', last, 'No heartbeat was received from the bot.');
+      const id = openIncident(
+        'The bot was unreachable',
+        'outage',
+        last,
+        'No heartbeat was received from the bot.',
+      );
       addUpdate(id, 'resolved', 'The bot came back online and monitoring resumed.');
     }
   } else {
@@ -310,19 +376,19 @@ function start(client) {
   } catch (e) {
     console.error('[monitor] recover failed:', e.message);
   }
+
   setTimeout(() => tick(client), 5000).unref();
   timer = setInterval(() => tick(client), TICK);
   timer.unref();
 }
 
 // ---------- maintenance ----------
-
 function refreshMaintenance(force) {
   const now = Date.now();
   if (!force && now - maintCache.at < 20000) return maintCache;
-  const rows = db
-    .prepare('SELECT * FROM maintenance WHERE cancelled = 0 AND ends >= ? AND starts <= ? ORDER BY starts')
-    .all(now - 14 * DAY, now + 30 * DAY);
+  const rows = db.prepare(
+    'SELECT * FROM maintenance WHERE cancelled = 0 AND ends >= ? AND starts <= ? ORDER BY starts',
+  ).all(now - 14 * DAY, now + 30 * DAY);
   const shape = r => ({ id: r.id, title: r.title, info: r.info, starts: r.starts, ends: r.ends });
   maintCache = {
     at: now,
@@ -355,13 +421,15 @@ function cancelMaintenance(id) {
 }
 
 // ---------- reading ----------
-
 // small banner shown at the top of every page when something needs attention
 function banner() {
   const m = refreshMaintenance();
-  if (m.active[0]) return { tone: 'maintenance', text: `Maintenance in progress: ${m.active[0].title}` };
-  if (current.overall === 'outage') return { tone: 'outage', text: 'The bot is having problems right now. We are on it.' };
-  if (current.overall === 'degraded') return { tone: 'degraded', text: 'Some services are running slowly.' };
+  if (m.active[0])
+    return { tone: 'maintenance', text: `Maintenance in progress: ${m.active[0].title}` };
+  if (current.overall === 'outage')
+    return { tone: 'outage', text: 'The bot is having problems right now. We are on it.' };
+  if (current.overall === 'degraded')
+    return { tone: 'degraded', text: 'Some services are running slowly.' };
   const soon = m.upcoming.find(x => x.starts - Date.now() < 72 * 3600 * 1000);
   if (soon) return { tone: 'notice', text: `Planned maintenance: ${soon.title}`, at: soon.starts };
   return null;
@@ -374,8 +442,11 @@ function uptime(days = 30) {
 
   const rows = db.prepare(`SELECT * FROM uptime_day WHERE date >= ?`).all(keys[0]);
   const byDate = Object.fromEntries(rows.map(r => [r.date, r]));
-  const incidentRows = db.prepare('SELECT started FROM incidents WHERE started >= ?').all(now - days * DAY);
+  const incidentRows = db.prepare('SELECT started FROM incidents WHERE started >= ?').all(
+    now - days * DAY,
+  );
   const perDay = {};
+
   incidentRows.forEach(r => {
     const k = dayKey(r.started);
     perDay[k] = (perDay[k] || 0) + 1;
@@ -400,18 +471,27 @@ function uptime(days = 30) {
     pingSum += r.ping_sum;
     pingN += r.ping_n;
 
-    if (total <= 0) return { date, status: r.maint_ms > 0 ? 'maintenance' : 'none', uptime: null, down: 0, incidents };
+    if (total <= 0)
+      return {
+        date,
+        status: r.maint_ms > 0 ? 'maintenance' : 'none',
+        uptime: null,
+        down: 0,
+        incidents,
+      };
 
-    const pct = (ok / total) * 100;
+    const pct = ok / total * 100;
     let status = 'operational';
+
     if (pct < 98) status = 'outage';
     else if (pct < 99.9) status = 'degraded';
+
     return { date, status, uptime: Math.round(pct * 100) / 100, down: r.down_ms, incidents };
   });
 
   return {
     days: list,
-    availability: tracked > 0 ? Math.round((available / tracked) * 10000) / 100 : null,
+    availability: tracked > 0 ? Math.round(available / tracked * 10000) / 100 : null,
     downtime: down,
     avgPing: pingN ? Math.round(pingSum / pingN) : null,
     incidentCount: incidentRows.length,
@@ -420,9 +500,9 @@ function uptime(days = 30) {
 
 function incidentList(days = 30) {
   const since = Date.now() - days * DAY;
-  const rows = db
-    .prepare("SELECT * FROM incidents WHERE started >= ? OR status != 'resolved' ORDER BY started DESC LIMIT 100")
-    .all(since);
+  const rows = db.prepare(
+    "SELECT * FROM incidents WHERE started >= ? OR status != 'resolved' ORDER BY started DESC LIMIT 100",
+  ).all(since);
   const updates = db.prepare('SELECT * FROM incident_updates WHERE incident = ? ORDER BY at DESC');
   const shaped = rows.map(r => ({
     id: r.id,
@@ -464,18 +544,28 @@ function snapshot(client) {
 }
 
 // ---------- owner actions ----------
-
 const clean = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 function manualIncident({ title, severity, message }) {
   const t = clean(title, 140);
   if (!t) throw new Error('Give the incident a title.');
-  return openIncident(t, severity === 'outage' ? 'outage' : 'degraded', Date.now(), clean(message, 600) || 'We are investigating.', 0);
+  return openIncident(
+    t,
+    severity === 'outage' ? 'outage' : 'degraded',
+    Date.now(),
+    clean(message, 600) || 'We are investigating.',
+    0,
+  );
 }
 
 function postUpdate(id, status, message) {
   const ok = ['investigating', 'monitoring', 'resolved'].includes(status) ? status : 'monitoring';
-  addUpdate(id, ok, clean(message, 600) || (ok === 'resolved' ? 'This incident has been resolved.' : 'Update posted.'));
+  addUpdate(
+    id,
+    ok,
+    clean(message, 600)
+      || (ok === 'resolved' ? 'This incident has been resolved.' : 'Update posted.'),
+  );
 }
 
 function deleteIncident(id) {

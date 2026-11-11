@@ -24,10 +24,12 @@ const NAV = [
 
 // UTC fallback text; the script below rewrites <time data-t> into the visitor's own time zone
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 function when(ms, withTime) {
   const d = new Date(ms);
   let out = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-  if (withTime) out += `, ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`;
+  if (withTime)
+    out += `, ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`;
   return `<time datetime="${new Date(ms).toISOString()}" data-t="${withTime ? 'dt' : 'd'}">${out}</time>`;
 }
 
@@ -99,9 +101,10 @@ function shell(req, name, { title, body, extra = '', noindex = false, session = 
     return `<a class="l${on}" href="${href}">${dot ? `<span class="dot ${state}" data-live-dot></span>` : ''}${label}</a>`;
   }).join('');
 
-  const notice = bar
-    ? `<div class="notice-bar ${bar.tone}" role="status"><a href="/status"><i></i><span>${esc(bar.text)}</span>${bar.at ? when(bar.at, true) : ''}</a></div>`
-    : '';
+  const notice =
+    bar
+      ? `<div class="notice-bar ${bar.tone}" role="status"><a href="/status"><i></i><span>${esc(bar.text)}</span>${bar.at ? when(bar.at, true) : ''}</a></div>`
+      : '';
 
   const html = `<!doctype html>
 <html lang="en">
@@ -151,6 +154,7 @@ ${body}
 ${extra}
 </body>
 </html>`;
+
   return site.iconize(html);
 }
 
