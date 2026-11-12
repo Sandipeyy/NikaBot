@@ -16,7 +16,6 @@ const dec = s =>
     .replace(/&amp;/g, '&')
     .replace(/&eacute;/g, 'é')
     .replace(/&ldquo;|&rdquo;/g, '"');
-const workCd = new Map();
 const mod = (name, desc, perm) =>
   new SlashCommandBuilder()
     .setName(name)
@@ -40,15 +39,15 @@ module.exports = [
   {
     data: new SlashCommandBuilder().setName('work').setDescription('Work for coins (1h cooldown)'),
     run: i => {
-      const k = i.guildId + i.user.id;
-      const left = (workCd.get(k) || 0) - Date.now();
+      const key = `work:${i.guildId}:${i.user.id}`;
+      const left = store.cooldownLeft(key);
       if (left > 0)
         return i.reply({
           content: `⏳ Rest for ${Math.ceil(left / 60000)} more min.`,
           ephemeral: true,
         });
       const n = 50 + Math.floor(Math.random() * 151);
-      workCd.set(k, Date.now() + 36e5);
+      store.setCooldown(key, 36e5);
       store.addCoins(i.guildId, i.user.id, n);
       i.reply(
         `💼 You worked as a ${pick(['chef', 'dev', 'pilot', 'streamer', 'miner'])} and earned **${n}** coins.`,

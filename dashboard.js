@@ -17,6 +17,9 @@ const adminlog = require('./adminlog');
 const honeypot = require('./honeypot');
 const verify = require('./verify');
 const confession = require('./confession');
+const tickets = require('./tickets');
+const reactionroles = require('./reactionroles');
+const modcase = require('./modcase');
 
 // Dashboard modules: [key, type, label, hint]
 const MODULES = {
@@ -39,6 +42,7 @@ const MODULES = {
       ['welcome_bg', 'url', 'Background image URL', 'Direct https link to a PNG/JPG (optional)'],
       ['welcome_color', 'color', 'Accent color'],
       ['autorole', 'role', 'Autorole for new members'],
+      ['autorole_bot', 'role', 'Autorole for new bots'],
     ],
   },
   goodbye: {
@@ -74,6 +78,24 @@ const MODULES = {
       ['am_invites', 'toggle', 'Block invite links'],
       ['am_links', 'toggle', 'Block all links'],
       ['am_badwords', 'textarea', 'Blocked words', 'Comma separated, e.g. word1, word2'],
+      [
+        'am_spam',
+        'toggle',
+        'Block message spam',
+        '5 messages in 6 seconds. Repeat offenders get a 10 minute timeout.',
+      ],
+      [
+        'am_mentions',
+        'number',
+        'Max mentions per message',
+        '0 turns it off. Messages with this many mentions or more are removed.',
+      ],
+      [
+        'am_caps',
+        'number',
+        'Max capital letters (%)',
+        '0 turns it off. Applies to messages with at least 12 letters.',
+      ],
       ['modlog_channel', 'channel', 'Mod-log channel', 'Where removed messages are logged'],
     ],
   },
@@ -102,6 +124,7 @@ const MODULES = {
       ['log_voice', 'toggle', 'Voice joins, leaves and moves', 'Can be noisy in busy servers'],
       ['log_bans', 'toggle', 'Bans and unbans'],
     ],
+    extra: 'logs',
   },
   honeypot: {
     icon: '🍯',
@@ -141,6 +164,12 @@ const MODULES = {
       ['verify_role', 'role', 'Verified role', 'Given after verifying. My role must be above it.'],
       ['verify_remove_role', 'role', 'Role to remove', 'Optional, e.g. an Unverified role'],
       [
+        'verify_kick_hours',
+        'number',
+        'Kick unverified after (hours)',
+        '0 turns it off. Members without the verified role are removed after this long.',
+      ],
+      [
         'verify_mode',
         'select',
         'How members verify',
@@ -167,6 +196,102 @@ const MODULES = {
     ],
     post: ['Post a button members can press to confess', 'confession_channel'],
     extra: 'confession',
+  },
+  warnings: {
+    icon: '⚠️',
+    title: 'Warnings',
+    desc: 'What happens automatically when a member collects warnings with /warn.',
+    fields: [
+      ['warn_threshold', 'number', 'Warnings before punishment', 'Default 3'],
+      [
+        'warn_action',
+        'select',
+        'Punishment',
+        '',
+        [['timeout', 'Timeout'], ['kick', 'Kick'], ['ban', 'Ban']],
+      ],
+      [
+        'warn_minutes',
+        'number',
+        'Timeout length (minutes)',
+        'Only used when the punishment is a timeout. Default 60.',
+      ],
+      ['warn_expire_days', 'number', 'Warnings expire after (days)', '0 means they never expire'],
+    ],
+  },
+  tickets: {
+    icon: '🎫',
+    title: 'Tickets',
+    desc: 'Private support channels opened with a button, with transcripts when they close.',
+    fields: [
+      ['ticket_staff_role', 'role', 'Staff role', 'Can see and answer every ticket'],
+      ['ticket_category', 'category', 'Category for new tickets', 'Optional'],
+      [
+        'ticket_log',
+        'channel',
+        'Log channel',
+        'Closed tickets and their transcripts are posted here',
+      ],
+      [
+        'ticket_panel_channel',
+        'channel',
+        'Channel for the ticket button',
+        'Where members open tickets',
+      ],
+    ],
+    post: ['Post the ticket button', 'ticket_panel_channel'],
+    extra: 'tickets',
+  },
+  starboard: {
+    icon: '⭐',
+    title: 'Starboard',
+    desc: 'Messages that get enough reactions are copied to a best-of channel.',
+    fields: [
+      ['starboard_channel', 'channel', 'Starboard channel', 'Leave empty to turn it off'],
+      ['starboard_threshold', 'number', 'Reactions needed', 'Default 3'],
+      ['starboard_emoji', 'text', 'Emoji', 'Default ⭐'],
+    ],
+  },
+  suggest: {
+    icon: '💡',
+    title: 'Suggestions',
+    desc: 'Members post ideas with /suggest new, everyone votes and moderators approve or deny.',
+    fields: [['suggest_channel', 'channel', 'Suggestion channel', 'Leave empty to turn it off']],
+    extra: 'suggest',
+  },
+  raidmode: {
+    icon: '🚨',
+    title: 'Raid mode',
+    desc: 'Remove new accounts automatically while a raid is happening.',
+    fields: [
+      ['raid_on', 'toggle', 'Raid mode is on', 'Switch on by hand'],
+      [
+        'raid_action',
+        'select',
+        'What happens to new accounts',
+        '',
+        [['kick', 'Kick'], ['ban', 'Ban'], ['timeout', 'Timeout for 24 hours']],
+      ],
+      [
+        'raid_min_age',
+        'number',
+        'Only affect accounts younger than (days)',
+        '0 affects every new member. Default 7.',
+      ],
+      ['raid_auto', 'toggle', 'Switch on by itself during a raid'],
+      ['raid_threshold', 'number', 'Joins in 15 seconds that trigger it', 'Default 8'],
+    ],
+    extra: 'raidmode',
+  },
+  birthday: {
+    icon: '🎂',
+    title: 'Birthdays',
+    desc:
+      'Announce member birthdays (set with /birthday set) and optionally give a role for the day.',
+    fields: [
+      ['birthday_channel', 'channel', 'Announcement channel', 'Leave empty to turn it off'],
+      ['birthday_role', 'role', 'Birthday role', 'Optional, removed the next day'],
+    ],
   },
   economy: {
     icon: '💰',
@@ -204,6 +329,61 @@ const MODULES = {
     ],
   },
 };
+
+// limits for numeric settings: [min, max]
+const LIM = {
+  tempvc_limit: [0, 99],
+  xp_rate: [0.5, 5],
+  warn_threshold: [1, 20],
+  warn_minutes: [1, 40320],
+  warn_expire_days: [0, 365],
+  starboard_threshold: [1, 50],
+  raid_min_age: [0, 365],
+  raid_threshold: [3, 50],
+  am_mentions: [0, 50],
+  am_caps: [0, 100],
+  verify_kick_hours: [0, 720],
+};
+
+// cleans one submitted value for a field. undefined means "leave it alone".
+function sanitize(f, raw, g) {
+  const [k, t] = f;
+  let v = raw;
+  if (t === 'toggle') return v ? 1 : 0;
+
+  if (t === 'number') {
+    v = Number(v);
+    if (!Number.isFinite(v)) return undefined;
+    const [lo, hi] = LIM[k] || [1, 100000];
+    v = Math.min(hi, Math.max(lo, k === 'xp_rate' ? v : Math.round(v)));
+    if (k === 'am_caps' && v > 0 && v < 50) v = 50;
+    return v;
+  }
+
+  if (t === 'select') return (f[4] || []).some(o => o[0] === v) ? v : f[4]?.[0]?.[0] ?? null;
+  if (t === 'channel') return g.channels.cache.has(v) ? v : null;
+  if (t === 'category')
+    return g.channels.cache.get(v)?.type === ChannelType.GuildCategory ? v : null;
+  if (t === 'role') return g.roles.cache.has(v) ? v : null;
+  if (t === 'cmdlist')
+    return (
+      []
+        .concat(v || [])
+        .filter(n => n !== 'help' && Object.values(meta).flat().includes(n))
+        .join(',')
+        || null
+    );
+  if (t === 'color') return /^#[0-9a-f]{6}$/i.test(v || '') ? v : null;
+  if (t === 'url') return /^https:\/\/\S{3,290}$/.test(v || '') ? v : null;
+  if (t === 'text')
+    return (
+      (k === 'prefix'
+        ? String(v ?? '').replace(/\s/g, '').slice(0, 5)
+        : String(v ?? '').slice(0, 100))
+        || null
+    );
+  return String(v ?? '').slice(0, 1000) || null;
+}
 
 module.exports = client => {
   const app = express();
@@ -688,7 +868,7 @@ module.exports = client => {
       .entries(MODULES)
       .map(([k, m]) => link(k, `/guild/${g.id}/${k}`, `${m.icon} ${m.title}`))
       .join('');
-    return `<aside class=side>${link('overview', `/guild/${g.id}`, '🏠 Overview')}${mods}<b class=sidehead>Admin tools</b>${link('cases', `/guild/${g.id}/cases`, '🔨 Mod cases')}${link('confessions', `/guild/${g.id}/confessions`, '🤫 Confession review')}${link('activity', `/guild/${g.id}/activity`, '🕘 Dashboard activity')}<a href=/leaderboard/${g.id}>🏆 Leaderboard ↗</a><a href=/servers>↩ Servers</a></aside>`;
+    return `<aside class=side>${link('overview', `/guild/${g.id}`, '🏠 Overview')}${mods}<b class=sidehead>Admin tools</b>${link('cases', `/guild/${g.id}/cases`, '🔨 Mod cases')}${link('confessions', `/guild/${g.id}/confessions`, '🤫 Confession review')}${link('member', `/guild/${g.id}/member`, '🔎 Member lookup')}${link('insights', `/guild/${g.id}/insights`, '📈 Insights')}${link('roles', `/guild/${g.id}/reactionroles`, '🎭 Reaction roles')}${link('activity', `/guild/${g.id}/activity`, '🕘 Dashboard activity')}${link('backup', `/guild/${g.id}/backup`, '💾 Backup')}<a href=/leaderboard/${g.id}>🏆 Leaderboard ↗</a><a href=/servers>↩ Servers</a></aside>`;
   };
 
   app.get('/guild/:id', auth, (req, res) => {
@@ -733,6 +913,192 @@ module.exports = client => {
   app.get('/guild/:id/activity', auth, (req, res) => {
     const g = ctx(req, res);
     if (g) res.send(page(req, g, 'activity', adminpages.activityPage(g, req.query)));
+  });
+
+  const notice = (kind, text) => `<div class=${kind}>${esc(text)}</div>`;
+
+  app.get('/guild/:id/insights', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (g) res.send(page(req, g, 'insights', adminpages.insightsPage(g, req.query)));
+  });
+
+  // member lookup: cases, notes, warnings in one place
+  app.get('/guild/:id/member', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (g)
+      res.send(
+        page(
+          req,
+          g,
+          'member',
+          adminpages.memberPage(g, req.query, req.query.t ? notice('ok', 'Saved.') : ''),
+        ),
+      );
+  });
+
+  const memberDone = (g, req, res, text) => {
+    adminlog.add(g.id, req.session.user, 'Members', text);
+    const id = String(req.body.q || '').replace(/\D/g, '');
+    res.redirect(`/guild/${g.id}/member?q=${id}&t=1`);
+  };
+
+  app.post('/guild/:id/member/note', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const id = String(req.body.q || '').replace(/\D/g, '');
+    if (id.length < 5) return res.sendStatus(400);
+
+    try {
+      modcase.addNote(g.id, id, req.session.user.id, req.body.text);
+    } catch {
+      return res.redirect(`/guild/${g.id}/member?q=${id}`);
+    }
+
+    memberDone(g, req, res, `added a staff note for ${id}`);
+  });
+
+  app.post('/guild/:id/member/note/:note/delete', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    modcase.deleteNote(g.id, Number(req.params.note));
+    memberDone(
+      g,
+      req,
+      res,
+      `deleted a staff note for ${String(req.body.q || '').replace(/\D/g, '')}`,
+    );
+  });
+
+  app.post('/guild/:id/member/case/:num/edit', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const num = Number(req.params.num);
+    db.prepare('UPDATE cases SET reason = ? WHERE guild = ? AND num = ?').run(
+      String(req.body.reason || '').slice(0, 300),
+      g.id,
+      num,
+    );
+    memberDone(g, req, res, `edited the reason of case #${num}`);
+  });
+
+  app.post('/guild/:id/member/case/:num/delete', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const num = Number(req.params.num);
+    db.prepare('DELETE FROM cases WHERE guild = ? AND num = ?').run(g.id, num);
+    memberDone(g, req, res, `deleted case #${num}`);
+  });
+
+  app.post('/guild/:id/member/clearwarns', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const id = String(req.body.q || '').replace(/\D/g, '');
+    db.prepare('DELETE FROM warns WHERE guild = ? AND user = ?').run(g.id, id);
+    memberDone(g, req, res, `cleared the warnings of ${id}`);
+  });
+
+  app.get('/guild/:id/reactionroles', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (g)
+      res.send(
+        page(
+          req,
+          g,
+          'roles',
+          adminpages.rolesPage(g, req.query.t ? notice('ok', 'Role picker deleted.') : ''),
+        ),
+      );
+  });
+
+  app.post('/guild/:id/reactionroles/:panel/delete', auth, async (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const ok = await reactionroles.remove(g, Number(req.params.panel));
+    if (ok)
+      adminlog.add(
+        g.id,
+        req.session.user,
+        'Reaction roles',
+        `deleted role picker #${req.params.panel}`,
+      );
+    res.redirect(`/guild/${g.id}/reactionroles?t=1`);
+  });
+
+  // test the log channels
+  app.post('/guild/:id/logs/test', auth, async (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const s = store.settings(g.id);
+    let sent = 0;
+
+    for (const [id, text] of [[s.modlog_channel, 'mod-log'], [s.logs_channel, 'server log']]) {
+      const ch = id && g.channels.cache.get(id);
+      if (!ch) continue;
+      const ok = await ch
+        .send(`✅ This is a test message for the ${text} from the dashboard.`)
+        .then(() => true)
+        .catch(() => false);
+      if (ok) sent++;
+    }
+
+    res.redirect(`/guild/${g.id}/logs?t=${sent ? 'logtest' : 'logfail'}`);
+  });
+
+  // backup and restore of dashboard settings
+  const keys = () => Object.values(MODULES).flatMap(m => m.fields);
+
+  app.get('/guild/:id/settings.json', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    const s = store.settings(g.id);
+    const out = {};
+    for (const [k] of keys()) if (s[k] !== null && s[k] !== undefined) out[k] = s[k];
+    adminlog.add(g.id, req.session.user, 'Backup', 'exported the settings');
+    res.set({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="settings-${g.id}.json"`,
+    }).send(JSON.stringify(out, null, 2));
+  });
+
+  app.get('/guild/:id/backup', auth, (req, res) => {
+    const g = ctx(req, res);
+    const flash =
+      {
+        ok: notice('ok', `Imported ${req.query.n || 0} settings.`),
+        bad: notice('warn', 'That is not a valid settings file.'),
+      }[req.query.t]
+        || '';
+    if (g) res.send(page(req, g, 'backup', adminpages.backupPage(g, flash)));
+  });
+
+  app.post('/guild/:id/backup/import', auth, (req, res) => {
+    const g = ctx(req, res);
+    if (!g) return;
+    let data;
+
+    try {
+      data = JSON.parse(String(req.body.data || ''));
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('shape');
+    } catch {
+      return res.redirect(`/guild/${g.id}/backup?t=bad`);
+    }
+
+    let n = 0;
+
+    for (const f of keys()) {
+      if (!(f[0] in data)) continue;
+      const v = sanitize(
+        f,
+        f[1] === 'toggle' ? data[f[0]] : f[1] === 'number' ? data[f[0]] : String(data[f[0]] ?? ''),
+        g,
+      );
+      if (v === undefined) continue;
+      store.setSetting(g.id, f[0], v);
+      n++;
+    }
+
+    adminlog.add(g.id, req.session.user, 'Backup', `imported ${n} settings`);
+    res.redirect(`/guild/${g.id}/backup?t=ok&n=${n}`);
   });
 
   const confessionFlash = {
@@ -812,6 +1178,9 @@ module.exports = client => {
     postfail:
       "<div class=warn>I could not post there. Check that I can View Channel, Send Messages and Embed Links in that channel.</div>",
     nochan: '<div class=warn>Choose a channel and save first.</div>',
+    logtest: '<div class=ok>Test logs sent. Check your log channels in Discord.</div>',
+    logfail:
+      '<div class=warn>I could not post a test log. Set a channel, save, and check that I can send embeds there.</div>',
   }[t]
     || '');
 
@@ -853,6 +1222,7 @@ module.exports = client => {
 
     const chans = g.channels.cache.filter(c => c.type === ChannelType.GuildText);
     const roles = g.roles.cache.filter(r => r.id !== g.id && !r.managed);
+    const cats = g.channels.cache.filter(c => c.type === ChannelType.GuildCategory);
     const opt = (items, sel, pre) =>
       '<option value="">— none —</option>'
         + items.map(i => `<option value=${i.id} ${i.id === sel ? 'selected' : ''}>${pre}${esc(i.name)}${pre === '#' && !i.permissionsFor?.(g.members.me)?.has(['ViewChannel', 'SendMessages']) ? ' (bot cannot post here)' : ''}</option>`).join(
@@ -867,17 +1237,19 @@ module.exports = client => {
           ? `<select name=${k}>${(options || []).map(([v, l]) => `<option value=${v} ${(s[k] || options[0][0]) === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`
           : t === 'channel'
             ? `<select name=${k}>${opt([...chans.values()], s[k], '#')}</select>`
-            : t === 'role'
-              ? `<select name=${k}>${opt([...roles.values()], s[k], '')}</select>`
-              : t === 'number'
-                ? `<input type=number step=0.1 name=${k} value="${esc(s[k])}">`
-                : t === 'cmdlist'
-                  ? cmdList(k, s[k])
-                  : t === 'text' || t === 'url'
-                    ? `<input name=${k} value="${esc(s[k])}" maxlength=300>`
-                    : t === 'color'
-                      ? `<input type=color name=${k} value="${esc(s[k] || (k.startsWith('goodbye') ? '#ed4245' : '#5865f2'))}" style="height:46px;padding:4px">`
-                      : `<textarea name=${k} rows=3>${esc(s[k])}</textarea>`;
+            : t === 'category'
+              ? `<select name=${k}>${opt([...cats.values()], s[k], '')}</select>`
+              : t === 'role'
+                ? `<select name=${k}>${opt([...roles.values()], s[k], '')}</select>`
+                : t === 'number'
+                  ? `<input type=number step=${LIM[k] && k !== 'xp_rate' ? 1 : 0.1} ${LIM[k] ? `min=${LIM[k][0]} max=${LIM[k][1]}` : ''} name=${k} value="${esc(s[k])}">`
+                  : t === 'cmdlist'
+                    ? cmdList(k, s[k])
+                    : t === 'text' || t === 'url'
+                      ? `<input name=${k} value="${esc(s[k])}" maxlength=300>`
+                      : t === 'color'
+                        ? `<input type=color name=${k} value="${esc(s[k] || (k.startsWith('goodbye') ? '#ed4245' : '#5865f2'))}" style="height:46px;padding:4px">`
+                        : `<textarea name=${k} rows=3>${esc(s[k])}</textarea>`;
       return `<div class=fr><b>${label}</b>${h}${inp}</div>`;
     };
 
@@ -915,6 +1287,14 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
       } else if (kind === 'confession') {
         await confession.postPanel(g);
         t = 'posted';
+      } else if (kind === 'tickets') {
+        const ch = g.channels.cache.get(s.ticket_panel_channel);
+
+        if (!ch) t = 'nochan';
+        else {
+          await ch.send(tickets.panel(g));
+          t = 'posted';
+        }
       } else return res.sendStatus(404);
     } catch (e) {
       console.error('[post]', e.message);
@@ -979,38 +1359,8 @@ ${req.query.saved ? '<div class=ok>✅ Settings saved</div>' : ''}${T === 'ok' ?
 
     for (const f of mod.fields) {
       const [k, t] = f;
-      let v = req.body[k];
-
-      if (t === 'toggle') v = v ? 1 : 0;
-      else if (t === 'number') {
-        v = Number(v);
-        if (!Number.isFinite(v)) continue;
-        v =
-          k === 'tempvc_limit'
-            ? Math.min(99, Math.max(0, Math.round(v)))
-            : k === 'xp_rate'
-              ? Math.min(5, Math.max(0.5, v))
-              : Math.min(100000, Math.max(1, Math.round(v)));
-      } else if (t === 'select')
-        v = (f[4] || []).some(o => o[0] === v) ? v : f[4]?.[0]?.[0] ?? null;
-      else if (t === 'channel') v = g.channels.cache.has(v) ? v : null;
-      else if (t === 'role') v = g.roles.cache.has(v) ? v : null;
-      else if (t === 'cmdlist')
-        v =
-          []
-            .concat(req.body[k] || [])
-            .filter(n => n !== 'help' && Object.values(meta).flat().includes(n))
-            .join(',')
-            || null;
-      else if (t === 'color') v = /^#[0-9a-f]{6}$/i.test(v || '') ? v : null;
-      else if (t === 'url') v = /^https:\/\/\S{3,290}$/.test(v || '') ? v : null;
-      else if (t === 'text')
-        v =
-          (k === 'prefix'
-            ? String(v ?? '').replace(/\s/g, '').slice(0, 5)
-            : String(v ?? '').slice(0, 100))
-            || null;
-      else v = String(v ?? '').slice(0, 1000) || null;
+      const v = sanitize(f, req.body[k], g);
+      if (v === undefined) continue;
 
       if ((before[k] ?? null) !== (v ?? null) && !(t === 'toggle' && !!before[k] === !!v))
         changed.push(f[2]);

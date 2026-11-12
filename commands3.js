@@ -9,6 +9,7 @@ const {
   PermissionFlagsBits: P,
 } = require('discord.js');
 const store = require('./db');
+const duration = require('./duration');
 const { db } = store;
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const btn = (id, label, style = ButtonStyle.Primary) =>
@@ -19,7 +20,6 @@ const SHOP = {
   crown: { name: '👑 Crown', price: 25000, desc: 'For true royalty' },
 };
 const lock = new Map();
-const robCd = new Map();
 
 // blackjack
 const mkDeck = () => {
@@ -248,8 +248,8 @@ const cmds = [
     run: i => {
       const t = i.options.getUser('user');
       const g = i.guildId;
-      const k = g + i.user.id;
-      const left = (robCd.get(k) || 0) - Date.now();
+      const key = `rob:${g}:${i.user.id}`;
+      const left = store.cooldownLeft(key);
       if (left > 0)
         return i.reply({ content: `🚔 Lay low for ${Math.ceil(left / 1000)}s.`, ephemeral: true });
       if (t.bot || t.id === i.user.id)
@@ -260,7 +260,7 @@ const cmds = [
         return i.reply({ content: 'You need at least 300 coins to try.', ephemeral: true });
       if (him.coins < 200)
         return i.reply({ content: `${t} is too broke to rob.`, ephemeral: true });
-      robCd.set(k, Date.now() + 3e5);
+      store.setCooldown(key, 3e5);
 
       if (store.hasItem(g, t.id, 'padlock')) {
         store.useItem(g, t.id, 'padlock');
@@ -365,63 +365,106 @@ const cmds = [
     // utility / server
     data: new SlashCommandBuilder()
       .setName('remind')
-      .setDescription('Set a reminder (sent by DM)')
-      .addIntegerOption(o =>
-        o
-          .setName('minutes')
-          .setDescription('In how many minutes')
-          .setMinValue(1)
-          .setMaxValue(10080)
-          .setRequired(true))
-      .addStringOption(o => o.setName('text').setDescription('Reminder').setRequired(true)),
+      .setDescription('Set, list or cancel reminders (sent by DM)')
+      .addSubcommand(s =>
+        s
+          .setName('set')
+          .setDescription('Remind me later')
+          .addStringOption(o =>
+            o
+              .setName('when')
+              .setDescription('In how long: 10m, 2h, 1d or 1h30m (a plain number means minutes)')
+              .setRequired(true))
+          .addStringOption(o =>
+            o.setName('text').setDescription('What to remind you about').setRequired(true)))
+      .addSubcommand(s => s.setName('list').setDescription('Show your reminders'))
+      .addSubcommand(s =>
+        s
+          .setName('cancel')
+          .setDescription('Cancel a reminder')
+          .addIntegerOption(o =>
+            o.setName('id').setDescription('Number from /remind list').setRequired(true))),
     run: i => {
-      const m = i.options.getInteger('minutes');
-      db.prepare('INSERT INTO reminders(user,text,at) VALUES(?,?,?)').run(
+      const sub = i.options.getSubcommand();
+
+      if (sub === 'list') {
+        const rows = db.prepare('SELECT * FROM reminders WHERE user=? ORDER BY at LIMIT 25').all(
+          i.user.id,
+        );
+        if (!rows.length) return i.reply({ content: 'You have no reminders.', ephemeral: true });
+        const lines = rows.map(r => `**#${r.id}** <t:${Math.floor(r.at / 1000)}:R> · ${r.text.slice(0, 80)}`);
+
+        return i.reply({ content: lines.join('\n'), ephemeral: true });
+      }
+
+      if (sub === 'cancel') {
+        const id = i.options.getInteger('id');
+        const res = db.prepare('DELETE FROM reminders WHERE id=? AND user=?').run(id, i.user.id);
+        return i.reply({
+          content: res.changes ? `Reminder #${id} cancelled.` : 'No reminder with that number.',
+          ephemeral: true,
+        });
+      }
+
+      const ms = duration.parse(i.options.getString('when'));
+
+      if (!ms || ms < 30000 || ms > 30 * 864e5) {
+        return i.reply({
+          content: 'Use a time between 30 seconds and 30 days, like `10m`, `2h` or `1d`.',
+          ephemeral: true,
+        });
+      }
+
+      const count = db.prepare('SELECT COUNT(*) n FROM reminders WHERE user=?').get(i.user.id).n;
+      if (count >= 25)
+        return i.reply({
+          content: 'You already have 25 reminders. Cancel one first.',
+          ephemeral: true,
+        });
+
+      const id = db.prepare('INSERT INTO reminders(user,text,at) VALUES(?,?,?)').run(
         i.user.id,
         i.options.getString('text').slice(0, 500),
-        Date.now() + m * 60000,
-      );
+        Date.now() + ms,
+      ).lastInsertRowid;
       i.reply({
-        content: `⏰ I'll DM you in **${m}** min. (Make sure your DMs are open.)`,
+        content: `⏰ Reminder #${id} set for <t:${Math.floor((Date.now() + ms) / 1000)}:R>. I'll DM you, so keep your DMs open.`,
         ephemeral: true,
       });
     },
   },
   {
     data: new SlashCommandBuilder()
-      .setName('ticket')
-      .setDescription('Post the support-ticket panel')
-      .setDefaultMemberPermissions(P.ManageGuild)
-      .setDMPermission(false),
-    run: async (i) => {
-      await i.channel.send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x5865f2)
-            .setTitle('🎫 Support')
-            .setDescription('Need help? Press the button to open a private ticket.'),
-        ],
-        components: [new ActionRowBuilder().addComponents(btn('tk:open', '📩 Open ticket'))],
-      });
-      i.reply({ content: 'Panel posted.', ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
       .setName('autorole')
-      .setDescription('Role given to new members')
+      .setDescription('Roles given to new members and to new bots')
       .setDefaultMemberPermissions(P.ManageRoles)
       .setDMPermission(false)
-      .addRoleOption(o => o.setName('role').setDescription('Role (leave empty to disable)')),
+      .addRoleOption(o =>
+        o.setName('role').setDescription('Role for new members (leave empty to disable)'))
+      .addRoleOption(o =>
+        o.setName('bot_role').setDescription('Role for new bots (leave empty to disable)')),
     run: i => {
-      const r = i.options.getRole('role');
-      if (r && (r.managed || r.position >= i.guild.members.me.roles.highest.position))
-        return i.reply({
-          content: 'I cannot assign that role (move my role higher).',
-          ephemeral: true,
-        });
-      store.setSetting(i.guildId, 'autorole', r?.id || null);
-      i.reply(r ? `✅ New members will get ${r}.` : '✅ Autorole disabled.');
+      const me = i.guild.members.me.roles.highest.position;
+      const role = i.options.getRole('role');
+      const botRole = i.options.getRole('bot_role');
+
+      for (const r of [role, botRole]) {
+        if (r && (r.managed || r.position >= me)) {
+          return i.reply({
+            content: `I cannot assign ${r.name} (move my role higher).`,
+            ephemeral: true,
+          });
+        }
+      }
+
+      store.setSetting(i.guildId, 'autorole', role?.id || null);
+      store.setSetting(i.guildId, 'autorole_bot', botRole?.id || null);
+      const lines = [
+        role ? `✅ New members will get ${role}.` : '✅ Member autorole disabled.',
+        botRole ? `✅ New bots will get ${botRole}.` : '✅ Bot autorole disabled.',
+      ];
+
+      i.reply({ content: lines.join('\n'), allowedMentions: { parse: [] } });
     },
   },
   {
@@ -465,35 +508,6 @@ async function handleButton(i) {
       content: `🎉 You're in! (${db.prepare('SELECT COUNT(*) n FROM entries WHERE msg=?').get(g.msg).n} entries)`,
       ephemeral: true,
     });
-  }
-
-  if (i.customId === 'tk:open') {
-    const ex = i.guild.channels.cache.find(c => c.topic === `ticket:${i.user.id}`);
-    if (ex) return i.reply({ content: `You already have ${ex}.`, ephemeral: true });
-    const ch = await i.guild.channels.create({
-      name: `ticket-${i.user.username}`.slice(0, 90),
-      type: ChannelType.GuildText,
-      topic: `ticket:${i.user.id}`,
-      parent: i.channel.parentId,
-      permissionOverwrites: [
-        { id: i.guild.id, deny: [P.ViewChannel] },
-        { id: i.user.id, allow: [P.ViewChannel, P.SendMessages] },
-        { id: i.client.user.id, allow: [P.ViewChannel, P.SendMessages, P.ManageChannels] },
-      ],
-    }).catch(() => null);
-    if (!ch) return i.reply({ content: 'I need the Manage Channels permission.', ephemeral: true });
-    await ch.send({
-      content: `${i.user}, staff will be with you soon.`,
-      components: [
-        new ActionRowBuilder().addComponents(btn('tk:close', '🔒 Close', ButtonStyle.Danger)),
-      ],
-    });
-    return i.reply({ content: `Ticket created: ${ch}`, ephemeral: true });
-  }
-
-  if (i.customId === 'tk:close' && i.channel.topic?.startsWith('ticket:')) {
-    await i.reply('Closing in 5 seconds…');
-    setTimeout(() => i.channel.delete().catch(() => {}), 5000);
   }
 }
 

@@ -14,6 +14,15 @@ CREATE TABLE IF NOT EXISTS settings(guild TEXT PRIMARY KEY,welcome_channel TEXT,
 `,
 );
 
+for (const col of ['bank INTEGER DEFAULT 0', 'bank_at INTEGER DEFAULT 0']) {
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN ${col}`);
+  } catch {}
+}
+
+// cooldowns that survive restarts
+db.exec('CREATE TABLE IF NOT EXISTS cooldowns(key TEXT PRIMARY KEY, until INTEGER)');
+
 db.exec(
   `
 CREATE TABLE IF NOT EXISTS levels(guild TEXT,user TEXT,xp INTEGER DEFAULT 0,last INTEGER DEFAULT 0,PRIMARY KEY(guild,user));
@@ -91,6 +100,32 @@ for (const c of [
   'verify_mode TEXT',
   'confession_channel TEXT',
   'confession_review TEXT',
+  'warn_threshold INTEGER DEFAULT 3',
+  "warn_action TEXT DEFAULT 'timeout'",
+  'warn_minutes INTEGER DEFAULT 60',
+  'warn_expire_days INTEGER DEFAULT 0',
+  'ticket_staff_role TEXT',
+  'ticket_category TEXT',
+  'ticket_log TEXT',
+  'ticket_panel_channel TEXT',
+  'starboard_channel TEXT',
+  'starboard_threshold INTEGER DEFAULT 3',
+  "starboard_emoji TEXT DEFAULT '⭐'",
+  'suggest_channel TEXT',
+  'raid_on INTEGER DEFAULT 0',
+  'raid_until INTEGER DEFAULT 0',
+  "raid_action TEXT DEFAULT 'kick'",
+  'raid_min_age INTEGER DEFAULT 7',
+  'raid_auto INTEGER DEFAULT 0',
+  'raid_threshold INTEGER DEFAULT 8',
+  'birthday_channel TEXT',
+  'birthday_role TEXT',
+  'birthday_last TEXT',
+  'am_spam INTEGER DEFAULT 0',
+  'am_mentions INTEGER DEFAULT 0',
+  'am_caps INTEGER DEFAULT 0',
+  'autorole_bot TEXT',
+  'verify_kick_hours INTEGER DEFAULT 0',
 ]) {
   try {
     db.exec(`ALTER TABLE settings ADD COLUMN ${c}`);
@@ -154,6 +189,17 @@ module.exports = {
     db.prepare('UPDATE inv SET qty=qty-1 WHERE guild=? AND user=? AND item=?').run(g, u, item);
   },
   db,
+  // milliseconds left on a cooldown (0 if it's over)
+  cooldownLeft(key) {
+    const row = db.prepare('SELECT until FROM cooldowns WHERE key=?').get(key);
+    return row ? Math.max(0, row.until - Date.now()) : 0;
+  },
+  setCooldown(key, ms) {
+    db.prepare('INSERT OR REPLACE INTO cooldowns(key, until) VALUES(?, ?)').run(
+      key,
+      Date.now() + ms,
+    );
+  },
   user(g, u) {
     db.prepare('INSERT OR IGNORE INTO users(guild,user) VALUES(?,?)').run(g, u);
     return db.prepare('SELECT * FROM users WHERE guild=? AND user=?').get(g, u);

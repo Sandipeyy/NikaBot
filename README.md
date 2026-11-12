@@ -12,6 +12,7 @@ Made by Sandip Gurung.
 - **Leveling:** XP for chatting, rank cards, level-up banners and leaderboards.
 - **Moderation:** warn, timeout, kick, ban, purge, lock, slowmode, cases with a mod-log and auto-moderation for invites, links and words.
 - **Music:** SoundCloud, Audius, Internet Archive, Jamendo, direct links and Spotify track links, with a queue and Now Playing buttons.
+- **Community tools:** tickets with transcripts, reaction roles, suggestions with voting, a starboard, birthdays, AFK notices and a bank with interest.
 - **Safety tools:** a honeypot trap channel, a verification button or question, server logs, a mod-log and anonymous confessions with optional review.
 - **Server tools:** welcome/goodbye image cards, autorole, tickets, polls, giveaways and temporary voice channels.
 - **Extras:** weather, dictionary, wiki, translate, GitHub lookups, anime GIF reactions and an optional AI chat.
@@ -28,7 +29,7 @@ Every slash command except `/confess` and `/confession` also works as a text com
 | `/changelog` | Bot and website updates |
 | `/commands`, `/features`, `/docs`, `/premium` | Information pages |
 | `/privacy`, `/terms` | Legal pages |
-| `/servers`, `/guild/:id` | Dashboard after logging in with Discord: overview with setup checklist and permission check, settings for every module, moderation case browser (filters and CSV export), dashboard activity log and confession moderation |
+| `/servers`, `/guild/:id` | Dashboard after logging in with Discord: overview with setup checklist and permission check, settings for every module, moderation case browser (filters and CSV export), dashboard activity log, member lookup with staff notes, insights (joins, leaves, busiest channels), reaction role manager, settings backup and restore, and confession moderation |
 | `/leaderboard/:id` | Public server leaderboard |
 | `/admin` | Owner only: schedule maintenance, post incidents, add changelog entries |
 
@@ -61,6 +62,14 @@ GET /api/stats       servers, users, commands
 | `/verify setup role:@Member` | Posts a Verify button. Mode `question` asks a small maths question first |
 | `/confess` | Anonymous confession. Moderators set it up with `/confession setup` and can add a review channel |
 | `/confession reveal` | Shows the sender of a confession. Every reveal is written to the mod-log and the dashboard activity log |
+
+| `/raidmode` | Removes new accounts during a raid. Can switch on by itself when many people join within seconds |
+| `/case user`, `/case note` | A member's full history and private staff notes |
+| `/ticket setup`, `/ticket panel` | Private support channels with a staff role, claiming and transcripts |
+| `/reactionroles create` | Posts a role picker with up to 10 roles |
+| `/suggest new`, `/starboard setup`, `/birthday setup`, `/afk`, `/bank` | Community and economy extras |
+
+The bot uses 91 of Discord's 100 slash command slots, so new features should be added as subcommands.
 
 Notes: logging deleted and edited messages needs the bot to keep a few recent messages in memory (50 per channel for 30 minutes). The bot needs the Ban Members, Kick Members, Moderate Members, Manage Roles and Manage Channels permissions for these features, and its role must sit above the verified role.
 
@@ -120,7 +129,20 @@ honeypot.js       trap channel
 verify.js         verification button and question
 confession.js     anonymous confessions
 adminlog.js       dashboard activity log
-adminpages.js     overview, cases, activity and confession pages
+adminpages.js     overview, cases, member lookup, insights, activity, backup and confession pages
+tickets.js        support tickets
+reactionroles.js  role pickers
+modcase.js        /case and staff notes
+suggest.js        suggestions
+starboard.js      starboard
+raidmode.js       raid mode
+afk.js            AFK notices
+birthday.js       birthdays
+bank.js           bank and interest
+automodplus.js    spam, mention and caps checks
+insights.js       per-server statistics
+jobs.js           cleanup and removal of unverified members
+duration.js       10m / 2h / 1d parser
 prefixrun.js      text-command versions of every slash command
 monitor.js        health checks, uptime, incidents, maintenance
 usage.js          daily command counts for analytics
