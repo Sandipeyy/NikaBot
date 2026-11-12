@@ -1,34 +1,6 @@
 [
   {
     "kind": "bot",
-    "title": "Tickets, reaction roles, starboard, raid mode and more",
-    "date": "2026-11-12",
-    "items": [
-      "/ticket rebuilt with a staff role, categories, claiming, close reasons and transcripts",
-      "/reactionroles, /suggest, /starboard, /birthday, /afk and /bank added",
-      "/raidmode can switch on by itself when many people join at once",
-      "/case shows a member's history and keeps private staff notes",
-      "/warn limits, punishment and expiry are now configurable",
-      "/remind accepts 10m, 2h or 1d and can list or cancel reminders; /purge has bot, link and text filters",
-      "Extra auto-moderation: spam, mass mentions and capital letters",
-      "Fixed: /work and /rob cooldowns no longer reset when the bot restarts"
-    ]
-  },
-  {
-    "kind": "website",
-    "title": "More tools for server admins",
-    "date": "2026-11-12",
-    "items": [
-      "Member lookup with cases, warnings and private staff notes",
-      "Insights: joins and leaves, busiest channels and popular commands",
-      "Settings for warnings, tickets, starboard, suggestions, raid mode and birthdays",
-      "Backup and restore of server settings",
-      "Test buttons for logs and the ability to delete or edit cases",
-      "Automatic removal of members who never verify"
-    ]
-  },
-  {
-    "kind": "bot",
     "title": "Honeypot, verification, logs, mod-log and confessions",
     "date": "2026-11-11",
     "items": [

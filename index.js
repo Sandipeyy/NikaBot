@@ -11,7 +11,6 @@ try {
 const {
   Client,
   Options,
-  Partials,
   AttachmentBuilder,
   GatewayIntentBits,
   ActivityType,
@@ -34,15 +33,6 @@ const commands = [
   ...require('./honeypot').commands,
   ...require('./verify').commands,
   ...require('./confession').commands,
-  ...require('./tickets').commands,
-  ...require('./reactionroles').commands,
-  ...require('./modcase').commands,
-  ...require('./suggest').commands,
-  ...require('./starboard').commands,
-  ...require('./raidmode').commands,
-  ...require('./afk').commands,
-  ...require('./birthday').commands,
-  ...require('./bank').commands,
 ].slice(0, 100);
 const { tick, handleButton } = require('./commands3');
 const { helpEmbed } = require('./commands2');
@@ -80,9 +70,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildModeration,
-    GatewayIntentBits.GuildMessageReactions,
   ],
-  partials: [Partials.Message, Partials.Reaction, Partials.Channel],
 });
 client.commandList = commands;
 
@@ -126,11 +114,6 @@ client.once('ready', async () => {
     () => require('./games').tick(client).catch(e => console.error('[lottery]', e.message)),
     30000,
   );
-  setInterval(() => require('./jobs').run(client), 10 * 60 * 1000).unref();
-  setInterval(
-    () => require('./birthday').tick(client).catch(e => console.error('[birthday]', e.message)),
-    5 * 60 * 1000,
-  ).unref();
   setInterval(
     () => require('./commands3').tick(client).catch(e => console.error('[tick]', e.message)),
     15000,
@@ -179,12 +162,6 @@ client.on('interactionCreate', async (i) => {
     return require('./verify').handleComponent(i).catch(console.error);
   if (i.guildId && i.customId?.startsWith('conf:'))
     return require('./confession').handleComponent(i).catch(console.error);
-  if (i.guildId && i.customId?.startsWith('tk:'))
-    return require('./tickets').handleComponent(i).catch(console.error);
-  if (i.guildId && i.customId?.startsWith('rr:'))
-    return require('./reactionroles').handleComponent(i).catch(console.error);
-  if (i.guildId && i.customId?.startsWith('sg:'))
-    return require('./suggest').handleComponent(i).catch(console.error);
   if (i.guildId && i.customId?.startsWith('mu:'))
     return require('./music').handleButton(i).catch(console.error);
   if (i.isStringSelectMenu?.() && i.customId === 'help:menu')
@@ -224,7 +201,7 @@ client.on('interactionCreate', async (i) => {
   busy.set(uid, now + 90000);
 
   try {
-    usage.record(i.commandName, i.guildId);
+    usage.record(i.commandName);
     await map.get(i.commandName)?.run(i);
   } catch (e) {
     console.error(`[cmd:${i.commandName}]`, e.message);
@@ -241,8 +218,6 @@ const INVITE = /(discord\.gg|discord(app)?\.com\/invite)\/\S+/i;
 const LINK = /https?:\/\/\S+/i;
 
 function automod(m, s) {
-  const plus = require('./automodplus').check(m, s);
-  if (plus) return plus;
   if (!(s.am_invites || s.am_links || s.am_badwords)
     || m.member?.permissions.has(PermissionFlagsBits.ManageMessages)) return null;
   const t = m.content;
@@ -324,9 +299,6 @@ client.on('messageCreate', m => {
     return;
   }
 
-  require('./insights').countMessage(m);
-  require('./afk').check(m);
-
   const c = m.content.toLowerCase().trim();
   const pfx = S.prefix || PREFIX;
 
@@ -351,8 +323,7 @@ const send = (m, kind) =>
 
 client.on('guildMemberAdd', m => {
   send(m, 'welcome');
-  const s = store.settings(m.guild.id);
-  const r = m.user.bot ? s.autorole_bot : s.autorole;
+  const r = store.settings(m.guild.id).autorole;
   if (r) m.roles.add(r).catch(() => {});
 });
 
@@ -367,9 +338,6 @@ client.on('voiceStateUpdate', (o, n) => {
 
 require('./music').init(client);
 require('./logs').listen(client);
-require('./starboard').listen(client);
-require('./raidmode').listen(client);
-require('./insights').listen(client);
 process.on('unhandledRejection', e => console.error('[unhandledRejection]', e));
 process.on('uncaughtException', e => console.error('[uncaughtException]', e));
 client.on('error', e => console.error('[client]', e)).on(

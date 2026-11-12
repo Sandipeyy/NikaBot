@@ -307,7 +307,7 @@ async function execute(m, r, args, pfx, lim) {
   if (wait) return say(wait);
 
   try {
-    require('./usage').record(r.cmd.data.name, m.guild.id);
+    require('./usage').record(r.cmd.data.name);
     await r.cmd.run(adapter(m, j, p.sub, p.vals));
   } catch (e) {
     console.error(`[prefix:${j.name}]`, e.message);

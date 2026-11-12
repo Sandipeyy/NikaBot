@@ -637,7 +637,7 @@ const commands = [
     // moderation
     data: mod(
       'warn',
-      'Warn a member (the automatic punishment is set in the dashboard)',
+      'Warn a member (3 warnings = 1 hour timeout)',
       P.ModerateMembers,
     ).addUserOption(o =>
       o.setName('user').setDescription('Member').setRequired(true)).addStringOption(reasonOpt),
@@ -654,29 +654,16 @@ const commands = [
         r.slice(0, 300),
         Date.now(),
       );
-      const s = store.settings(i.guildId);
-      const limit = s.warn_threshold || 3;
-      const since = s.warn_expire_days ? Date.now() - s.warn_expire_days * 864e5 : 0;
-      const n = db.prepare('SELECT COUNT(*) n FROM warns WHERE guild=? AND user=? AND at>?').get(
+      const n = db.prepare('SELECT COUNT(*) n FROM warns WHERE guild=? AND user=?').get(
         i.guildId,
         u.id,
-        since,
       ).n;
-      let extra = ` (warning ${n}/${limit})`;
+      let extra = ` (warning ${n})`;
 
-      if (n >= limit && m) {
-        const action = s.warn_action || 'timeout';
-        const minutes = s.warn_minutes || 60;
-
+      if (n >= 3 && m) {
         try {
-          if (action === 'ban') await m.ban({ reason: `${limit} warnings` });
-          else if (action === 'kick') await m.kick(`${limit} warnings`);
-          else await m.timeout(minutes * 60000, `${limit} warnings`);
-
-          extra +=
-            action === 'timeout'
-              ? ` · automatically timed out for ${human(minutes * 60000)}`
-              : ` · automatically ${action === 'ban' ? 'banned' : 'kicked'}`;
+          await m.timeout(36e5, '3 warnings');
+          extra += ' · automatically timed out for 1 hour';
         } catch {}
       }
 
@@ -821,44 +808,32 @@ const commands = [
     },
   },
   {
-    data: mod
-      ('purge', 'Delete recent messages, with optional filters', P.ManageMessages)
-      .addIntegerOption(o =>
-        o
-          .setName('amount')
-          .setDescription('1-100')
-          .setMinValue(1)
-          .setMaxValue(100)
-          .setRequired(true))
-      .addUserOption(o => o.setName('user').setDescription("Only delete this user's messages"))
-      .addBooleanOption(o => o.setName('bots').setDescription('Only delete messages from bots'))
-      .addBooleanOption(o =>
-        o.setName('links').setDescription('Only delete messages that contain a link'))
-      .addStringOption(o =>
-        o.setName('contains').setDescription('Only delete messages containing this text')),
+    data: mod(
+      'purge',
+      'Delete recent messages (optionally only from one user)',
+      P.ManageMessages,
+    ).addIntegerOption(o =>
+      o
+        .setName('amount')
+        .setDescription('1-100')
+        .setMinValue(1)
+        .setMaxValue(100)
+        .setRequired(true)).addUserOption(o =>
+      o.setName('user').setDescription('Only delete this user\'s messages')),
     run: async (i) => {
       const u = i.options.getUser('user');
       const n = i.options.getInteger('amount');
-      const botsOnly = i.options.getBoolean('bots');
-      const linksOnly = i.options.getBoolean('links');
-      const word = (i.options.getString('contains') || '').toLowerCase();
-
       let msgs = await i.channel.messages.fetch({ limit: 100 }).catch(() => null);
       if (!msgs) return i.reply({ content: "I can't read this channel.", ephemeral: true });
-
-      msgs = [...msgs.values()]
-        .filter(x => x.id !== i.id)
-        .filter(x => !u || x.author.id === u.id)
-        .filter(x => !botsOnly || x.author.bot)
-        .filter(x => !linksOnly || /https?:\/\/\S+/i.test(x.content))
-        .filter(x => !word || x.content.toLowerCase().includes(word))
-        .slice(0, n);
-
+      msgs = [...msgs.values()].filter(x => (!u || x.author.id === u.id) && x.id !== i.id).slice(
+        0,
+        n,
+      );
       const d = await i.channel.bulkDelete(msgs, true).catch(() => null);
       return i.reply({
         content:
           d
-            ? `🧹 Deleted **${d.size}** message${d.size === 1 ? '' : 's'}. (Discord can't bulk-delete messages older than 14 days.)`
+            ? `🧹 Deleted **${d.size}** message${d.size === 1 ? '' : 's'}${u ? ` from ${u.username}` : ''}. (Discord can't bulk-delete messages older than 14 days.)`
             : 'Failed. I need Manage Messages.',
         ephemeral: true,
       });

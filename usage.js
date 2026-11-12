@@ -22,12 +22,11 @@ const bump = db.prepare(
 const categoryOf = {};
 for (const [category, names] of Object.entries(meta)) names.forEach(n => categoryOf[n] = category);
 
-function record(command, guildId) {
+function record(command) {
   if (!command) return;
 
   try {
     bump.run(dayKey(Date.now()), String(command).slice(0, 40));
-    if (guildId) require('./insights').countCommand(guildId, String(command).slice(0, 40));
   } catch (e) {
     console.error('[usage]', e.message);
   }
